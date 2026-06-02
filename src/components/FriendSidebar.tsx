@@ -36,7 +36,10 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) =
   }, [currentUserId]);
 
   useEffect(() => {
-    fetchFriends();
+    const timeoutId = setTimeout(() => {
+      fetchFriends();
+    }, 0);
+    return () => clearTimeout(timeoutId);
   }, [fetchFriends]);
 
   const addFriend = async () => {

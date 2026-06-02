@@ -1,8 +1,4 @@
-export enum UserStatus {
-  ONLINE = 'ONLINE',
-  OFFLINE = 'OFFLINE',
-  IN_GAME = 'IN_GAME',
-}
+export type UserStatus = 'ONLINE' | 'OFFLINE' | 'IN_GAME';
 
 export interface User {
   id: string;
@@ -11,10 +7,7 @@ export interface User {
   avatar?: string;
 }
 
-export enum FriendStatus {
-  PENDING = 'PENDING',
-  ACCEPTED = 'ACCEPTED',
-}
+export type FriendStatus = 'PENDING' | 'ACCEPTED';
 
 export interface Friend {
   id: string;

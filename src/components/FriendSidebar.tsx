@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Friend, UserStatus } from '../types/friend';
+import type { Friend, UserStatus } from '../types/friend';
 
 interface FriendSidebarProps {
   currentUserId: string;
@@ -80,11 +80,11 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) =
 
   const getStatusColor = (status: UserStatus) => {
     switch (status) {
-      case UserStatus.ONLINE:
+      case 'ONLINE':
         return 'var(--status-online, #4caf50)';
-      case UserStatus.IN_GAME:
+      case 'IN_GAME':
         return 'var(--status-ingame, #ff9800)';
-      case UserStatus.OFFLINE:
+      case 'OFFLINE':
       default:
         return 'var(--status-offline, #9e9e9e)';
     }

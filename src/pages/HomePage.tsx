@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 interface UserProfile {
   id: string;
@@ -136,7 +136,7 @@ export default function HomePage() {
       <div className="dashboard-header">
         <div className="dashboard-user-info">
           <img
-            src={user?.avatar ? `/api/users/me/avatar` /* Or static avatar fallback */ : 'default_avatar.png'}
+            src={user?.avatar}
             onError={(e) => {
               // Fallback image if avatar endpoint isn't fully set up or image doesn't load
               e.currentTarget.src = 'https://api.dicebear.com/7.x/bottts/svg?seed=' + (user?.nickname || 'transcendence');
@@ -150,9 +150,14 @@ export default function HomePage() {
             <span className="badge-status">{user?.status || 'ONLINE'}</span>
           </div>
         </div>
-        <button className="btn-secondary" onClick={handleLogout}>
-          Sign Out
-        </button>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <Link to="/profile" className="btn-secondary" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+            My Profile
+          </Link>
+          <button className="btn-secondary" onClick={handleLogout}>
+            Sign Out
+          </button>
+        </div>
       </div>
 
       <div className="dashboard-grid">

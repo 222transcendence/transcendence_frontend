@@ -1,16 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { logout as apiLogout, fetchMyProfile } from '../api/client';
+import type { UserProfile } from '../types/user';
 import { FriendSidebar } from '../components/FriendSidebar';
-
-interface UserProfile {
-  id: string;
-  email: string;
-  nickname: string;
-  avatar: string;
-  status: string;
-  wins: number;
-  losses: number;
-}
 
 export default function HomePage() {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -18,92 +10,19 @@ export default function HomePage() {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
-    const accessToken = localStorage.getItem('accessToken');
-    
-    try {
-      if (accessToken) {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-          },
-        });
-      }
-    } catch (err) {
-      console.error('Logout request failed', err);
-    } finally {
-      localStorage.clear();
-      navigate('/login', { replace: true });
-    }
-  };
-
-  const fetchProfile = async (token: string): Promise<boolean> => {
-    try {
-      const response = await fetch('/api/users/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      const result = await response.json();
-
-      if (response.ok && !result.error) {
-        setUser(result.data);
-        return true;
-      }
-      return false;
-    } catch (err) {
-      return false;
-    }
-  };
-
-  const tryTokenRefresh = async (): Promise<string | null> => {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (!refreshToken) return null;
-
-    try {
-      const response = await fetch('/api/auth/refresh', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ refreshToken }),
-      });
-
-      const result = await response.json();
-      if (response.ok && !result.error && result.data?.accessToken) {
-        const newAccessToken = result.data.accessToken;
-        localStorage.setItem('accessToken', newAccessToken);
-        return newAccessToken;
-      }
-    } catch (err) {
-      console.error('Token refresh failed', err);
-    }
-    return null;
+    await apiLogout();
+    navigate('/login', { replace: true });
   };
 
   useEffect(() => {
     const loadProfile = async () => {
-      const token = localStorage.getItem('accessToken');
-      if (!token) {
-        handleLogout();
-        return;
-      }
-
-      const success = await fetchProfile(token);
-      if (!success) {
-        // Try refreshing token
-        const newAccessToken = await tryTokenRefresh();
-        if (newAccessToken) {
-          const secondSuccess = await fetchProfile(newAccessToken);
-          if (secondSuccess) {
-            setIsLoading(false);
-            return;
-          }
-        }
-        // If refresh fails
-        handleLogout();
-      } else {
+      try {
+        const profile = await fetchMyProfile();
+        setUser(profile);
+      } catch {
+        await apiLogout();
+        navigate('/login', { replace: true });
+      } finally {
         setIsLoading(false);
       }
     };

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { FriendSidebar } from '../components/FriendSidebar';
 
 interface UserProfile {
   id: string;
@@ -132,50 +133,56 @@ export default function HomePage() {
   }
 
   return (
-    <div className="dashboard-container">
-      <div className="dashboard-header">
-        <div className="dashboard-user-info">
-          <img
-            src={user?.avatar}
-            onError={(e) => {
-              // Fallback image if avatar endpoint isn't fully set up or image doesn't load
-              e.currentTarget.src = 'https://api.dicebear.com/7.x/bottts/svg?seed=' + (user?.nickname || 'transcendence');
-            }}
-            alt="User Avatar"
-            className="avatar-large"
-          />
-          <div className="user-details">
-            <h2>{user?.nickname}</h2>
-            <p>{user?.email}</p>
-            <span className="badge-status">{user?.status || 'ONLINE'}</span>
+    <div className="app-container">
+      <div className="main-content">
+        <div className="dashboard-container">
+          <div className="dashboard-header">
+            <div className="dashboard-user-info">
+              <img
+                src={user?.avatar}
+                onError={(e) => {
+                  // Fallback image if avatar endpoint isn't fully set up or image doesn't load
+                  e.currentTarget.src = 'https://api.dicebear.com/7.x/bottts/svg?seed=' + (user?.nickname || 'transcendence');
+                }}
+                alt="User Avatar"
+                className="avatar-large"
+              />
+              <div className="user-details">
+                <h2>{user?.nickname}</h2>
+                <p>{user?.email}</p>
+                <span className="badge-status">{user?.status || 'ONLINE'}</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <Link to="/profile" className="btn-secondary" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                My Profile
+              </Link>
+              <button className="btn-secondary" onClick={handleLogout}>
+                Sign Out
+              </button>
+            </div>
           </div>
-        </div>
-        <div style={{ display: 'flex', gap: 12 }}>
-          <Link to="/profile" className="btn-secondary" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
-            My Profile
-          </Link>
-          <button className="btn-secondary" onClick={handleLogout}>
-            Sign Out
-          </button>
+
+          <div className="dashboard-grid">
+            <div className="stat-card">
+              <h3>Total Wins</h3>
+              <div className="stat-value glow-cyan">{user?.wins || 0}</div>
+            </div>
+            <div className="stat-card">
+              <h3>Total Losses</h3>
+              <div className="stat-value glow-purple">{user?.losses || 0}</div>
+            </div>
+            <div className="stat-card">
+              <h3>Win Rate</h3>
+              <div className="stat-value">
+                {user ? (user.wins + user.losses > 0 ? Math.round((user.wins / (user.wins + user.losses)) * 100) : 0) : 0}%
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="dashboard-grid">
-        <div className="stat-card">
-          <h3>Total Wins</h3>
-          <div className="stat-value glow-cyan">{user?.wins || 0}</div>
-        </div>
-        <div className="stat-card">
-          <h3>Total Losses</h3>
-          <div className="stat-value glow-purple">{user?.losses || 0}</div>
-        </div>
-        <div className="stat-card">
-          <h3>Win Rate</h3>
-          <div className="stat-value">
-            {user ? (user.wins + user.losses > 0 ? Math.round((user.wins / (user.wins + user.losses)) * 100) : 0) : 0}%
-          </div>
-        </div>
-      </div>
+      <FriendSidebar currentUserId={user?.id || ''} />
     </div>
   );
 }

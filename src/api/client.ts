@@ -110,7 +110,7 @@ export async function sendFriendRequest(userId: string): Promise<void> {
 
 export async function getFriends(): Promise<import('../types/friend').Friend[]> {
   const response = await authorizedFetch('/api/friends');
-  return response.json();
+  return parseEnvelope<import('../types/friend').Friend[]>(response);
 }
 
 export async function removeFriend(friendId: string): Promise<void> {

@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Friend, UserStatus } from '../types/friend';
+import { getFriends, sendFriendRequest, removeFriend as apiRemoveFriend } from '../api/client';
 
 interface FriendSidebarProps {
   currentUserId: string;
 }
-
-const API_BASE_URL = 'http://localhost:3000/api';
 
 export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) => {
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -18,15 +17,7 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) =
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/friends`, {
-        headers: {
-          'x-user-id': currentUserId,
-        },
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch friends');
-      }
-      const data = await response.json();
+      const data = await getFriends();
       setFriends(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -46,16 +37,7 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) =
     if (!targetUserId) return;
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/friends/${targetUserId}`, {
-        method: 'POST',
-        headers: {
-          'x-user-id': currentUserId,
-        },
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to add friend');
-      }
+      await sendFriendRequest(targetUserId);
       setTargetUserId('');
       fetchFriends();
     } catch (err) {
@@ -63,18 +45,10 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) =
     }
   };
 
-  const removeFriend = async (friendId: string) => {
+  const removeFriendHandler = async (friendId: string) => {
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/friends/${friendId}`, {
-        method: 'DELETE',
-        headers: {
-          'x-user-id': currentUserId,
-        },
-      });
-      if (!response.ok) {
-        throw new Error('Failed to remove friend');
-      }
+      await apiRemoveFriend(friendId);
       fetchFriends();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -134,7 +108,7 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) =
                   </div>
                   <button
                     className="remove-btn"
-                    onClick={() => removeFriend(friend.id)}
+                    onClick={() => removeFriendHandler(friend.id)}
                   >
                     Delete
                   </button>

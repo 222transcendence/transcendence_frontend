@@ -107,3 +107,12 @@ export async function sendFriendRequest(userId: string): Promise<void> {
   });
   await parseEnvelope<unknown>(response);
 }
+
+export async function getFriends(): Promise<import('../types/friend').Friend[]> {
+  const response = await authorizedFetch('/api/friends');
+  return response.json();
+}
+
+export async function removeFriend(friendId: string): Promise<void> {
+  await authorizedFetch(`/api/friends/${friendId}`, { method: 'DELETE' });
+}

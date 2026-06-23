@@ -5,21 +5,71 @@ interface ApiEnvelope<T> {
   error: { message?: string } | null;
 }
 
-async function authorizedFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  const token = localStorage.getItem('accessToken');
-  const headers = new Headers(init.headers);
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
-  return fetch(path, { ...init, headers });
-}
-
 async function parseEnvelope<T>(response: Response): Promise<T> {
   const result = (await response.json()) as ApiEnvelope<T>;
   if (!response.ok || result.error) {
     throw new Error(result.error?.message || 'Request failed');
   }
   return result.data;
+}
+
+async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = localStorage.getItem('refreshToken');
+  if (!refreshToken) return null;
+  try {
+    const response = await fetch('/api/auth/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+    const result = (await response.json()) as ApiEnvelope<{ accessToken: string }>;
+    if (response.ok && !result.error && result.data?.accessToken) {
+      localStorage.setItem('accessToken', result.data.accessToken);
+      return result.data.accessToken;
+    }
+  } catch {
+    // network error — fall through
+  }
+  return null;
+}
+
+export async function logout(): Promise<void> {
+  const token = localStorage.getItem('accessToken');
+  try {
+    if (token) {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    }
+  } catch {
+    // ignore — clear local state regardless
+  } finally {
+    localStorage.clear();
+  }
+}
+
+async function authorizedFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const token = localStorage.getItem('accessToken');
+  const headers = new Headers(init.headers);
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+
+  const response = await fetch(path, { ...init, headers });
+
+  if (response.status === 401) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      const retryHeaders = new Headers(init.headers);
+      retryHeaders.set('Authorization', `Bearer ${newToken}`);
+      return fetch(path, { ...init, headers: retryHeaders });
+    }
+    // Refresh failed — redirect to login
+    localStorage.clear();
+    window.location.replace('/login');
+    return response;
+  }
+
+  return response;
 }
 
 export async function fetchMyProfile(): Promise<UserProfile> {

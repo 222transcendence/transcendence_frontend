@@ -29,7 +29,6 @@ export default function ChatPanel({ currentUserId, onInviteAccept }: ChatPanelPr
 
     const socket = io('/chat', {
       auth: { token: `Bearer ${token}` },
-      transports: ['websocket'],
     });
 
     socket.on('connect', async () => {

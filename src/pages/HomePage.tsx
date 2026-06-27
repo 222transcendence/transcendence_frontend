@@ -76,6 +76,9 @@ export default function HomePage() {
               <Link to="/profile" className="btn-secondary" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
                 My Profile
               </Link>
+              <Link to="/lobby" className="btn-secondary" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                Game Lobby
+              </Link>
               <button className="btn-secondary" onClick={handleLogout}>
                 Sign Out
               </button>

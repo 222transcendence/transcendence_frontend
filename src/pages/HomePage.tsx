@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { logout as apiLogout, fetchMyProfile } from '../api/client';
 import type { UserProfile } from '../types/user';
 import { FriendSidebar } from '../components/FriendSidebar';
+import ChatPanel from '../components/ChatPanel';
 
 export default function HomePage() {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -105,6 +106,7 @@ export default function HomePage() {
       </div>
 
       <FriendSidebar currentUserId={user?.id || ''} />
+      <ChatPanel currentUserId={user?.id || ''} />
     </div>
   );
 }

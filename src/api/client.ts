@@ -1,4 +1,5 @@
 import type { PublicUserProfile, UserProfile } from '../types/user';
+import type { ChatMessage } from '../types/chat';
 
 interface ApiEnvelope<T> {
   data: T;
@@ -115,4 +116,9 @@ export async function getFriends(): Promise<import('../types/friend').Friend[]> 
 
 export async function removeFriend(friendId: string): Promise<void> {
   await authorizedFetch(`/api/friends/${friendId}`, { method: 'DELETE' });
+}
+
+export async function fetchChatHistory(): Promise<ChatMessage[]> {
+  const response = await authorizedFetch('/api/chat/history');
+  return parseEnvelope<ChatMessage[]>(response);
 }

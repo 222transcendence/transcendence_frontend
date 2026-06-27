@@ -28,6 +28,7 @@ export default function ChatPanel({ currentUserId, onInviteAccept }: ChatPanelPr
     if (!token || socketRef.current?.connected) return;
 
     const socket = io('/chat', {
+      path: '/socketio',
       auth: { token: `Bearer ${token}` },
     });
 

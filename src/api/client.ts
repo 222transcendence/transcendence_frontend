@@ -118,6 +118,29 @@ export async function removeFriend(friendId: string): Promise<void> {
   await authorizedFetch(`/api/friends/${friendId}`, { method: 'DELETE' });
 }
 
+export interface PendingRequest {
+  id: string;
+  requester: { id: string; nickname: string; status: string; avatar: string | null };
+  createdAt: string;
+}
+
+export async function getPendingRequests(): Promise<PendingRequest[]> {
+  const response = await authorizedFetch('/api/friends/requests');
+  return parseEnvelope<PendingRequest[]>(response);
+}
+
+export async function respondFriendRequest(
+  requestId: string,
+  action: 'accept' | 'reject',
+): Promise<void> {
+  const response = await authorizedFetch(`/api/friends/${requestId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action }),
+  });
+  await parseEnvelope<unknown>(response);
+}
+
 export async function fetchChatHistory(): Promise<ChatMessage[]> {
   const response = await authorizedFetch('/api/chat/history');
   return parseEnvelope<ChatMessage[]>(response);

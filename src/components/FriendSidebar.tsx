@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Friend, UserStatus } from '../types/friend';
-import { getFriends, sendFriendRequest, removeFriend as apiRemoveFriend } from '../api/client';
+import {
+  getFriends,
+  sendFriendRequest,
+  removeFriend as apiRemoveFriend,
+  getPendingRequests,
+  respondFriendRequest,
+  type PendingRequest,
+} from '../api/client';
 
 interface FriendSidebarProps {
   currentUserId: string;
@@ -8,17 +15,22 @@ interface FriendSidebarProps {
 
 export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) => {
   const [friends, setFriends] = useState<Friend[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
   const [targetUserId, setTargetUserId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const fetchFriends = useCallback(async () => {
+  const fetchAll = useCallback(async () => {
     if (!currentUserId) return;
     setLoading(true);
     setError(null);
     try {
-      const data = await getFriends();
-      setFriends(data);
+      const [friendsData, pendingData] = await Promise.all([
+        getFriends(),
+        getPendingRequests(),
+      ]);
+      setFriends(friendsData);
+      setPendingRequests(pendingData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -28,10 +40,10 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) =
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      fetchFriends();
+      fetchAll();
     }, 0);
     return () => clearTimeout(timeoutId);
-  }, [fetchFriends]);
+  }, [fetchAll]);
 
   const addFriend = async () => {
     if (!targetUserId) return;
@@ -39,7 +51,7 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) =
     try {
       await sendFriendRequest(targetUserId);
       setTargetUserId('');
-      fetchFriends();
+      fetchAll();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     }
@@ -49,7 +61,17 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) =
     setError(null);
     try {
       await apiRemoveFriend(friendId);
-      fetchFriends();
+      fetchAll();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    }
+  };
+
+  const handleRespondRequest = async (requestId: string, action: 'accept' | 'reject') => {
+    setError(null);
+    try {
+      await respondFriendRequest(requestId, action);
+      fetchAll();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     }
@@ -121,13 +143,31 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) =
 
       <div className="pending-requests-section">
         <h3>Friend Requests</h3>
-        <p className="placeholder-text">
-          Backend API required (요청 목록 API 추가 후 연동 예정)
-        </p>
-        <div className="disabled-ui">
-          <button disabled>Accept (Disabled)</button>
-          <button disabled>Reject (Disabled)</button>
-        </div>
+        {pendingRequests.length === 0 ? (
+          <p className="placeholder-text">No pending requests.</p>
+        ) : (
+          <ul className="pending-list">
+            {pendingRequests.map((req) => (
+              <li key={req.id} className="pending-item">
+                <span className="nickname">{req.requester.nickname}</span>
+                <div className="pending-actions">
+                  <button
+                    className="accept-btn"
+                    onClick={() => handleRespondRequest(req.id, 'accept')}
+                  >
+                    Accept
+                  </button>
+                  <button
+                    className="reject-btn"
+                    onClick={() => handleRespondRequest(req.id, 'reject')}
+                  >
+                    Reject
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </aside>
   );

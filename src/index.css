@@ -635,3 +635,110 @@ body::after {
   text-align: center;
   animation: cardEnter 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* Site Footer */
+.site-footer {
+  padding: 16px 24px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--glass-border);
+  margin-top: auto;
+}
+
+.footer-link {
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: var(--transition-smooth);
+}
+
+.footer-link:hover {
+  color: var(--accent-cyan);
+}
+
+.footer-divider {
+  margin: 0 10px;
+  opacity: 0.4;
+}
+
+/* Static pages (Privacy Policy, Terms of Service) */
+.static-page-container {
+  min-height: 100vh;
+  padding: 40px 20px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.static-page-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 48px;
+  max-width: 760px;
+  width: 100%;
+}
+
+.static-page-card h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  background: linear-gradient(135deg, #ffffff 30%, var(--accent-purple) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.static-page-card h2 {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--accent-cyan);
+  margin: 28px 0 10px;
+}
+
+.static-page-card p,
+.static-page-card li {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.8;
+}
+
+.static-page-card ul {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+
+.static-page-card section {
+  margin-bottom: 8px;
+}
+
+.static-page-updated {
+  font-size: 13px;
+  color: var(--text-secondary);
+  opacity: 0.6;
+  margin-bottom: 32px;
+}
+
+.static-page-back {
+  display: inline-block;
+  margin-bottom: 24px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: var(--transition-smooth);
+}
+
+.static-page-back:hover {
+  color: var(--accent-cyan);
+}
+
+.static-page-link {
+  color: var(--accent-cyan);
+  text-decoration: none;
+}
+
+.static-page-link:hover {
+  text-decoration: underline;
+}

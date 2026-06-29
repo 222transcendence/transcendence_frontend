@@ -1,33 +1,36 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Friend, UserStatus } from '../types/friend';
+import {
+  getFriends,
+  sendFriendRequest,
+  removeFriend as apiRemoveFriend,
+  getPendingRequests,
+  respondFriendRequest,
+  type PendingRequest,
+} from '../api/client';
 
 interface FriendSidebarProps {
   currentUserId: string;
 }
 
-const API_BASE_URL = 'http://localhost:3000/api';
-
 export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) => {
   const [friends, setFriends] = useState<Friend[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
   const [targetUserId, setTargetUserId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const fetchFriends = useCallback(async () => {
+  const fetchAll = useCallback(async () => {
     if (!currentUserId) return;
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/friends`, {
-        headers: {
-          'x-user-id': currentUserId,
-        },
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch friends');
-      }
-      const data = await response.json();
-      setFriends(data);
+      const [friendsData, pendingData] = await Promise.all([
+        getFriends(),
+        getPendingRequests(),
+      ]);
+      setFriends(friendsData);
+      setPendingRequests(pendingData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -37,45 +40,38 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) =
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      fetchFriends();
+      fetchAll();
     }, 0);
     return () => clearTimeout(timeoutId);
-  }, [fetchFriends]);
+  }, [fetchAll]);
 
   const addFriend = async () => {
     if (!targetUserId) return;
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/friends/${targetUserId}`, {
-        method: 'POST',
-        headers: {
-          'x-user-id': currentUserId,
-        },
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to add friend');
-      }
+      await sendFriendRequest(targetUserId);
       setTargetUserId('');
-      fetchFriends();
+      fetchAll();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     }
   };
 
-  const removeFriend = async (friendId: string) => {
+  const removeFriendHandler = async (friendId: string) => {
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/friends/${friendId}`, {
-        method: 'DELETE',
-        headers: {
-          'x-user-id': currentUserId,
-        },
-      });
-      if (!response.ok) {
-        throw new Error('Failed to remove friend');
-      }
-      fetchFriends();
+      await apiRemoveFriend(friendId);
+      fetchAll();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    }
+  };
+
+  const handleRespondRequest = async (requestId: string, action: 'accept' | 'reject') => {
+    setError(null);
+    try {
+      await respondFriendRequest(requestId, action);
+      fetchAll();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     }
@@ -134,7 +130,7 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) =
                   </div>
                   <button
                     className="remove-btn"
-                    onClick={() => removeFriend(friend.id)}
+                    onClick={() => removeFriendHandler(friend.id)}
                   >
                     Delete
                   </button>
@@ -147,13 +143,31 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) =
 
       <div className="pending-requests-section">
         <h3>Friend Requests</h3>
-        <p className="placeholder-text">
-          Backend API required (요청 목록 API 추가 후 연동 예정)
-        </p>
-        <div className="disabled-ui">
-          <button disabled>Accept (Disabled)</button>
-          <button disabled>Reject (Disabled)</button>
-        </div>
+        {pendingRequests.length === 0 ? (
+          <p className="placeholder-text">No pending requests.</p>
+        ) : (
+          <ul className="pending-list">
+            {pendingRequests.map((req) => (
+              <li key={req.id} className="pending-item">
+                <span className="nickname">{req.requester.nickname}</span>
+                <div className="pending-actions">
+                  <button
+                    className="accept-btn"
+                    onClick={() => handleRespondRequest(req.id, 'accept')}
+                  >
+                    Accept
+                  </button>
+                  <button
+                    className="reject-btn"
+                    onClick={() => handleRespondRequest(req.id, 'reject')}
+                  >
+                    Reject
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </aside>
   );

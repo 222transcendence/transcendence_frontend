@@ -742,3 +742,74 @@ body::after {
 .static-page-link:hover {
   text-decoration: underline;
 }
+
+/* Stats, Match History, Leaderboard (#7) */
+.winrate-bar-bg {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 100px;
+  height: 8px;
+  overflow: hidden;
+}
+
+.winrate-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-purple), var(--accent-cyan));
+  border-radius: 100px;
+  transition: width 0.6s ease;
+}
+
+.match-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.match-history-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.match-win { border-color: rgba(0, 242, 254, 0.15); }
+.match-loss { border-color: rgba(255, 77, 77, 0.12); }
+
+.match-result-badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  min-width: 44px;
+  text-align: center;
+}
+
+.badge-win { background: rgba(0, 242, 254, 0.12); color: var(--accent-cyan); }
+.badge-loss { background: rgba(255, 77, 77, 0.12); color: var(--error); }
+.match-opponent { flex: 1; font-size: 14px; }
+
+.leaderboard-list { display: flex; flex-direction: column; gap: 10px; }
+
+.leaderboard-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.leaderboard-rank { font-size: 16px; font-weight: 700; min-width: 36px; }
+.rank-1 { color: #ffd700; }
+.rank-2 { color: #c0c0c0; }
+.rank-3 { color: #cd7f32; }
+
+.leaderboard-nickname { flex: 1; color: var(--text-primary); text-decoration: none; font-weight: 500; }
+.leaderboard-nickname:hover { color: var(--accent-cyan); }
+.leaderboard-stats { display: flex; gap: 6px; font-size: 14px; font-weight: 600; min-width: 80px; }
+
+.avatar-small { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }

@@ -8,10 +8,12 @@ import LobbyPage from './pages/LobbyPage';
 import WaitingRoomPage from './pages/WaitingRoomPage';
 import PhaseAnimationsDemoPage from './pages/dev/PhaseAnimationsDemoPage';
 import PrivateRoute from './components/PrivateRoute';
+import { GameSocketProvider } from './context/GameSocketContext';
 import './App.css';
 
 function App() {
   return (
+    <GameSocketProvider>
     <BrowserRouter>
       <Routes>
         {/* Protected Home Route */}
@@ -79,6 +81,7 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
+    </GameSocketProvider>
   );
 }
 

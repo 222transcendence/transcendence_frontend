@@ -14,6 +14,11 @@ export default defineConfig({
         target: 'ws://localhost:3000',
         ws: true,
       },
+      '/socketio': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
 })

@@ -9,6 +9,8 @@ import WaitingRoomPage from './pages/WaitingRoomPage';
 import PhaseAnimationsDemoPage from './pages/dev/PhaseAnimationsDemoPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsOfServicePage from './pages/TermsOfServicePage';
+import StatsPage from './pages/StatsPage';
+import LeaderboardPage from './pages/LeaderboardPage';
 import PrivateRoute from './components/PrivateRoute';
 import { GameSocketProvider } from './context/GameSocketContext';
 import './App.css';
@@ -72,6 +74,11 @@ function App() {
         {/* Static Pages (public) */}
         <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
         <Route path="/terms-of-service" element={<TermsOfServicePage />} />
+
+        {/* Stats & Leaderboard (#7) */}
+        <Route path="/stats" element={<PrivateRoute><StatsPage /></PrivateRoute>} />
+        <Route path="/stats/:userId" element={<PrivateRoute><StatsPage /></PrivateRoute>} />
+        <Route path="/leaderboard" element={<PrivateRoute><LeaderboardPage /></PrivateRoute>} />
 
         {/* Dev-only animation demo (#6), not linked from nav */}
         <Route

@@ -10,10 +10,12 @@ import PhaseAnimationsDemoPage from './pages/dev/PhaseAnimationsDemoPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsOfServicePage from './pages/TermsOfServicePage';
 import PrivateRoute from './components/PrivateRoute';
+import { GameSocketProvider } from './context/GameSocketContext';
 import './App.css';
 
 function App() {
   return (
+    <GameSocketProvider>
     <BrowserRouter>
       <Routes>
         {/* Protected Home Route */}
@@ -85,6 +87,7 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
+    </GameSocketProvider>
   );
 }
 

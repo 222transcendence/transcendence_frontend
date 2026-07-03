@@ -11,6 +11,7 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsOfServicePage from './pages/TermsOfServicePage';
 import StatsPage from './pages/StatsPage';
 import LeaderboardPage from './pages/LeaderboardPage';
+import GameBoardPage from './pages/GameBoardPage';
 import PrivateRoute from './components/PrivateRoute';
 import { GameSocketProvider } from './context/GameSocketContext';
 import './App.css';
@@ -79,6 +80,12 @@ function App() {
         <Route path="/stats" element={<PrivateRoute><StatsPage /></PrivateRoute>} />
         <Route path="/stats/:userId" element={<PrivateRoute><StatsPage /></PrivateRoute>} />
         <Route path="/leaderboard" element={<PrivateRoute><LeaderboardPage /></PrivateRoute>} />
+
+        {/* Game Board (#5) */}
+        <Route
+          path="/game/:roomId"
+          element={<PrivateRoute><GameBoardPage /></PrivateRoute>}
+        />
 
         {/* Dev-only animation demo (#6), not linked from nav */}
         <Route

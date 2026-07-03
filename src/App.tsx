@@ -7,6 +7,8 @@ import ProfilePage from './pages/ProfilePage';
 import LobbyPage from './pages/LobbyPage';
 import WaitingRoomPage from './pages/WaitingRoomPage';
 import PhaseAnimationsDemoPage from './pages/dev/PhaseAnimationsDemoPage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import TermsOfServicePage from './pages/TermsOfServicePage';
 import PrivateRoute from './components/PrivateRoute';
 import './App.css';
 
@@ -64,6 +66,10 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
+
+        {/* Static Pages (public) */}
+        <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms-of-service" element={<TermsOfServicePage />} />
 
         {/* Dev-only animation demo (#6), not linked from nav */}
         <Route

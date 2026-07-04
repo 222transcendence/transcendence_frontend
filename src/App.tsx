@@ -7,18 +7,11 @@ import ProfilePage from './pages/ProfilePage';
 import LobbyPage from './pages/LobbyPage';
 import WaitingRoomPage from './pages/WaitingRoomPage';
 import PhaseAnimationsDemoPage from './pages/dev/PhaseAnimationsDemoPage';
-import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
-import TermsOfServicePage from './pages/TermsOfServicePage';
-import StatsPage from './pages/StatsPage';
-import LeaderboardPage from './pages/LeaderboardPage';
-import GameBoardPage from './pages/GameBoardPage';
 import PrivateRoute from './components/PrivateRoute';
-import { GameSocketProvider } from './context/GameSocketContext';
 import './App.css';
 
 function App() {
   return (
-    <GameSocketProvider>
     <BrowserRouter>
       <Routes>
         {/* Protected Home Route */}
@@ -72,21 +65,6 @@ function App() {
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
 
-        {/* Static Pages (public) */}
-        <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-        <Route path="/terms-of-service" element={<TermsOfServicePage />} />
-
-        {/* Stats & Leaderboard (#7) */}
-        <Route path="/stats" element={<PrivateRoute><StatsPage /></PrivateRoute>} />
-        <Route path="/stats/:userId" element={<PrivateRoute><StatsPage /></PrivateRoute>} />
-        <Route path="/leaderboard" element={<PrivateRoute><LeaderboardPage /></PrivateRoute>} />
-
-        {/* Game Board (#5) */}
-        <Route
-          path="/game/:roomId"
-          element={<PrivateRoute><GameBoardPage /></PrivateRoute>}
-        />
-
         {/* Dev-only animation demo (#6), not linked from nav */}
         <Route
           path="/dev/phase-animations"
@@ -101,7 +79,6 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
-    </GameSocketProvider>
   );
 }
 

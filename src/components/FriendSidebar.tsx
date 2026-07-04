@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import type { Friend, UserStatus } from '../types/friend';
 import {
   getFriends,
-  sendFriendRequest,
+  sendFriendRequestByNickname,
   removeFriend as apiRemoveFriend,
   getPendingRequests,
   respondFriendRequest,
@@ -16,7 +16,7 @@ interface FriendSidebarProps {
 export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) => {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
-  const [targetUserId, setTargetUserId] = useState('');
+  const [targetNickname, setTargetNickname] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -46,11 +46,11 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) =
   }, [fetchAll]);
 
   const addFriend = async () => {
-    if (!targetUserId) return;
+    if (!targetNickname.trim()) return;
     setError(null);
     try {
-      await sendFriendRequest(targetUserId);
-      setTargetUserId('');
+      await sendFriendRequestByNickname(targetNickname.trim());
+      setTargetNickname('');
       fetchAll();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -94,15 +94,16 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) =
       <h2>Friends</h2>
 
       <div className="friend-add-section">
-        <h3>User ID로 친구 추가 (임시 ID 입력)</h3>
+        <h3>닉네임으로 친구 추가</h3>
         <div className="input-group">
           <input
             type="text"
-            value={targetUserId}
-            onChange={(e) => setTargetUserId(e.target.value)}
-            placeholder="Enter User UUID"
+            value={targetNickname}
+            onChange={(e) => setTargetNickname(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addFriend()}
+            placeholder="Enter nickname"
           />
-          <button onClick={addFriend} disabled={!targetUserId}>
+          <button onClick={addFriend} disabled={!targetNickname.trim()}>
             Add
           </button>
         </div>

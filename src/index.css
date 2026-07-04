@@ -813,269 +813,269 @@ body::after {
 .leaderboard-stats { display: flex; gap: 6px; font-size: 14px; font-weight: 600; min-width: 80px; }
 
 .avatar-small { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
-+
-+/* Game Board UI (#5) */
-+.game-board {
-+  display: grid;
-+  grid-template-columns: 80px 1fr;
-+  width: 100%;
-+  max-width: 960px;
-+  min-height: 100vh;
-+  gap: 16px;
-+  padding: 20px;
-+  position: relative;
-+}
-+
-+.game-board-loading {
-+  display: flex;
-+  align-items: center;
-+  justify-content: center;
-+  min-height: 100vh;
-+  font-size: 18px;
-+  color: var(--text-secondary);
-+}
-+
-+.game-board-sidebar {
-+  display: flex;
-+  flex-direction: column;
-+  gap: 12px;
-+  padding-top: 80px;
-+}
-+
-+.game-sidebar-item {
-+  background: var(--glass-bg);
-+  border: 1px solid var(--glass-border);
-+  border-radius: 12px;
-+  padding: 10px 8px;
-+  text-align: center;
-+}
-+
-+.game-sidebar-label {
-+  display: block;
-+  font-size: 10px;
-+  text-transform: uppercase;
-+  letter-spacing: 0.5px;
-+  color: var(--text-muted);
-+  margin-bottom: 4px;
-+}
-+
-+.game-sidebar-value {
-+  display: block;
-+  font-size: 20px;
-+  font-weight: 700;
-+  color: var(--text-primary);
-+}
-+
-+.timer-urgent .game-sidebar-value { color: var(--error); animation: timerPulse 0.5s infinite alternate; }
-+
-+@keyframes timerPulse {
-+  from { opacity: 1; }
-+  to { opacity: 0.5; }
-+}
-+
-+.game-board-main {
-+  display: flex;
-+  flex-direction: column;
-+  gap: 12px;
-+}
-+
-+.game-board-opponent,
-+.game-board-me {
-+  background: var(--glass-bg);
-+  border: 1px solid var(--glass-border);
-+  border-radius: 16px;
-+  padding: 16px 20px;
-+  display: flex;
-+  align-items: center;
-+  gap: 16px;
-+}
-+
-+.game-board-opponent { border-color: rgba(79, 172, 254, 0.15); }
-+
-+.game-board-player-info {
-+  display: flex;
-+  flex-direction: column;
-+  gap: 4px;
-+  min-width: 100px;
-+}
-+
-+.player-name {
-+  font-weight: 600;
-+  font-size: 15px;
-+}
-+
-+.status-effects { display: flex; flex-wrap: wrap; gap: 4px; }
-+
-+.status-badge {
-+  background: rgba(255, 255, 255, 0.07);
-+  border-radius: 6px;
-+  padding: 2px 6px;
-+  font-size: 11px;
-+  color: var(--text-secondary);
-+}
-+
-+.hp-bar-container {
-+  display: flex;
-+  align-items: center;
-+  gap: 8px;
-+  flex: 1;
-+}
-+
-+.hp-label { font-size: 12px; color: var(--text-muted); min-width: 24px; }
-+
-+.hp-bar-bg {
-+  flex: 1;
-+  height: 10px;
-+  background: rgba(255, 255, 255, 0.06);
-+  border-radius: 100px;
-+  overflow: hidden;
-+}
-+
-+.hp-bar-fill {
-+  height: 100%;
-+  background: linear-gradient(90deg, var(--error) 0%, #ff9f43 50%, #51cf66 100%);
-+  border-radius: 100px;
-+  transition: width 0.5s ease;
-+}
-+
-+.hp-value { font-size: 14px; font-weight: 700; min-width: 32px; text-align: right; }
-+
-+.card-count-badge {
-+  font-size: 12px;
-+  color: var(--text-muted);
-+  min-width: 52px;
-+  text-align: right;
-+}
-+
-+.game-board-center {
-+  background: var(--glass-bg);
-+  border: 1px solid var(--glass-border);
-+  border-radius: 20px;
-+  padding: 20px;
-+  display: flex;
-+  flex-direction: column;
-+  align-items: center;
-+  gap: 16px;
-+  flex: 1;
-+}
-+
-+.game-center-stats {
-+  display: flex;
-+  gap: 32px;
-+}
-+
-+.game-center-stat {
-+  display: flex;
-+  flex-direction: column;
-+  align-items: center;
-+  gap: 4px;
-+}
-+
-+.game-center-stat-label {
-+  font-size: 11px;
-+  text-transform: uppercase;
-+  letter-spacing: 0.5px;
-+  color: var(--text-muted);
-+}
-+
-+.game-center-stat-value {
-+  font-size: 22px;
-+  font-weight: 700;
-+}
-+
-+/* Card Item (#5) */
-+.hand-area {
-+  background: var(--glass-bg);
-+  border: 1px solid var(--glass-border);
-+  border-radius: 16px;
-+  padding: 16px;
-+  display: flex;
-+  flex-direction: column;
-+  gap: 12px;
-+}
-+
-+.hand-area-cards {
-+  display: flex;
-+  flex-wrap: wrap;
-+  gap: 10px;
-+}
-+
-+.hand-area-empty {
-+  color: var(--text-muted);
-+  font-size: 14px;
-+}
-+
-+.hand-area-actions {
-+  display: flex;
-+  justify-content: flex-end;
-+  align-items: center;
-+  gap: 12px;
-+}
-+
-+.hand-area-submit {
-+  width: auto;
-+  padding: 12px 28px;
-+}
-+
-+.hand-area-waiting {
-+  color: var(--text-secondary);
-+  font-size: 14px;
-+  font-style: italic;
-+}
-+
-+.card-item {
-+  display: flex;
-+  flex-direction: column;
-+  align-items: center;
-+  gap: 4px;
-+  width: 70px;
-+  height: 96px;
-+  background: rgba(255, 255, 255, 0.03);
-+  border: 2px solid rgba(255, 255, 255, 0.08);
-+  border-radius: 12px;
-+  cursor: pointer;
-+  padding: 8px 4px;
-+  transition: var(--transition-smooth);
-+  position: relative;
-+  overflow: hidden;
-+}
-+
-+.card-item::before {
-+  content: '';
-+  position: absolute;
-+  inset: 0;
-+  background: var(--card-color, var(--accent-cyan));
-+  opacity: 0;
-+  transition: opacity 0.2s ease;
-+}
-+
-+.card-item:hover::before { opacity: 0.06; }
-+
-+.card-item--selected {
-+  border-color: var(--card-color, var(--accent-cyan));
-+  box-shadow: 0 0 12px color-mix(in srgb, var(--card-color, var(--accent-cyan)) 40%, transparent);
-+  transform: translateY(-4px);
-+}
-+
-+.card-item--selected::before { opacity: 0.12; }
-+
-+.card-item--disabled { opacity: 0.4; cursor: not-allowed; }
-+.card-item--disabled:hover::before { opacity: 0; }
-+
-+.card-item-icon { font-size: 24px; position: relative; }
-+.card-item-label { font-size: 11px; font-weight: 600; position: relative; color: var(--card-color, var(--text-primary)); }
-+.card-item-id { font-size: 10px; color: var(--text-muted); position: relative; }
-+
-+.game-disconnect-banner {
-+  position: fixed;
-+  top: 16px;
-+  left: 50%;
-+  transform: translateX(-50%);
-+  background: var(--error-bg);
-+  border: 1px solid rgba(255, 77, 77, 0.3);
-+  color: var(--error);
-+  padding: 10px 20px;
-+  border-radius: 12px;
-+  font-size: 14px;
-+  z-index: 50;
-+}
+
+/* Game Board UI (#5) */
+.game-board {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  width: 100%;
+  max-width: 960px;
+  min-height: 100vh;
+  gap: 16px;
+  padding: 20px;
+  position: relative;
+}
+
+.game-board-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-size: 18px;
+  color: var(--text-secondary);
+}
+
+.game-board-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 80px;
+}
+
+.game-sidebar-item {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 10px 8px;
+  text-align: center;
+}
+
+.game-sidebar-label {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.game-sidebar-value {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.timer-urgent .game-sidebar-value { color: var(--error); animation: timerPulse 0.5s infinite alternate; }
+
+@keyframes timerPulse {
+  from { opacity: 1; }
+  to { opacity: 0.5; }
+}
+
+.game-board-main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.game-board-opponent,
+.game-board-me {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.game-board-opponent { border-color: rgba(79, 172, 254, 0.15); }
+
+.game-board-player-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 100px;
+}
+
+.player-name {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.status-effects { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.status-badge {
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.hp-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.hp-label { font-size: 12px; color: var(--text-muted); min-width: 24px; }
+
+.hp-bar-bg {
+  flex: 1;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 100px;
+  overflow: hidden;
+}
+
+.hp-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--error) 0%, #ff9f43 50%, #51cf66 100%);
+  border-radius: 100px;
+  transition: width 0.5s ease;
+}
+
+.hp-value { font-size: 14px; font-weight: 700; min-width: 32px; text-align: right; }
+
+.card-count-badge {
+  font-size: 12px;
+  color: var(--text-muted);
+  min-width: 52px;
+  text-align: right;
+}
+
+.game-board-center {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+.game-center-stats {
+  display: flex;
+  gap: 32px;
+}
+
+.game-center-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.game-center-stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.game-center-stat-value {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+/* Card Item (#5) */
+.hand-area {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hand-area-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.hand-area-empty {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.hand-area-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+}
+
+.hand-area-submit {
+  width: auto;
+  padding: 12px 28px;
+}
+
+.hand-area-waiting {
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-style: italic;
+}
+
+.card-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 70px;
+  height: 96px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  cursor: pointer;
+  padding: 8px 4px;
+  transition: var(--transition-smooth);
+  position: relative;
+  overflow: hidden;
+}
+
+.card-item::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--card-color, var(--accent-cyan));
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.card-item:hover::before { opacity: 0.06; }
+
+.card-item--selected {
+  border-color: var(--card-color, var(--accent-cyan));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--card-color, var(--accent-cyan)) 40%, transparent);
+  transform: translateY(-4px);
+}
+
+.card-item--selected::before { opacity: 0.12; }
+
+.card-item--disabled { opacity: 0.4; cursor: not-allowed; }
+.card-item--disabled:hover::before { opacity: 0; }
+
+.card-item-icon { font-size: 24px; position: relative; }
+.card-item-label { font-size: 11px; font-weight: 600; position: relative; color: var(--card-color, var(--text-primary)); }
+.card-item-id { font-size: 10px; color: var(--text-muted); position: relative; }
+
+.game-disconnect-banner {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--error-bg);
+  border: 1px solid rgba(255, 77, 77, 0.3);
+  color: var(--error);
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  z-index: 50;
+}

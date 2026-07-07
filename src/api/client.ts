@@ -109,6 +109,13 @@ export async function sendFriendRequest(userId: string): Promise<void> {
   await parseEnvelope<unknown>(response);
 }
 
+export async function sendFriendRequestByNickname(nickname: string): Promise<void> {
+  const response = await authorizedFetch(`/api/friends/by-nickname/${encodeURIComponent(nickname)}`, {
+    method: 'POST',
+  });
+  await parseEnvelope<unknown>(response);
+}
+
 export async function getFriends(): Promise<import('../types/friend').Friend[]> {
   const response = await authorizedFetch('/api/friends');
   return parseEnvelope<import('../types/friend').Friend[]>(response);

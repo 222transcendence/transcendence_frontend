@@ -1,13 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Friend, UserStatus } from '../types/friend';
+import type { PublicUserProfile } from '../types/user';
 import {
   getFriends,
-  sendFriendRequest,
+  sendFriendRequestByNickname,
   removeFriend as apiRemoveFriend,
   getPendingRequests,
   respondFriendRequest,
+  fetchUserProfile,
   type PendingRequest,
 } from '../api/client';
+
+interface ProfilePopup {
+  user: PublicUserProfile;
+  x: number;
+  y: number;
+}
 
 interface FriendSidebarProps {
   currentUserId: string;
@@ -16,9 +24,10 @@ interface FriendSidebarProps {
 export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) => {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
-  const [targetUserId, setTargetUserId] = useState('');
+  const [targetNickname, setTargetNickname] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [popup, setPopup] = useState<ProfilePopup | null>(null);
 
   const fetchAll = useCallback(async () => {
     if (!currentUserId) return;
@@ -46,11 +55,11 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) =
   }, [fetchAll]);
 
   const addFriend = async () => {
-    if (!targetUserId) return;
+    if (!targetNickname.trim()) return;
     setError(null);
     try {
-      await sendFriendRequest(targetUserId);
-      setTargetUserId('');
+      await sendFriendRequestByNickname(targetNickname.trim());
+      setTargetNickname('');
       fetchAll();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -79,30 +88,45 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) =
 
   const getStatusColor = (status: UserStatus) => {
     switch (status) {
-      case 'ONLINE':
-        return 'var(--status-online, #4caf50)';
-      case 'IN_GAME':
-        return 'var(--status-ingame, #ff9800)';
-      case 'OFFLINE':
-      default:
-        return 'var(--status-offline, #9e9e9e)';
+      case 'ONLINE': return 'var(--status-online, #4caf50)';
+      case 'IN_GAME': return 'var(--status-ingame, #ff9800)';
+      case 'OFFLINE': default: return 'var(--status-offline, #9e9e9e)';
+    }
+  };
+
+  const getStatusLabel = (status: UserStatus) => {
+    switch (status) {
+      case 'ONLINE': return 'Online';
+      case 'IN_GAME': return 'In Game';
+      case 'OFFLINE': default: return 'Offline';
+    }
+  };
+
+  const handleNicknameClick = async (e: React.MouseEvent, friendId: string) => {
+    e.stopPropagation();
+    try {
+      const user = await fetchUserProfile(friendId);
+      setPopup({ user, x: e.clientX, y: e.clientY });
+    } catch {
+      // ignore
     }
   };
 
   return (
-    <aside className="friend-sidebar">
+    <aside className="friend-sidebar" onClick={() => setPopup(null)}>
       <h2>Friends</h2>
 
       <div className="friend-add-section">
-        <h3>User ID로 친구 추가 (임시 ID 입력)</h3>
+        <h3>닉네임으로 친구 추가</h3>
         <div className="input-group">
           <input
             type="text"
-            value={targetUserId}
-            onChange={(e) => setTargetUserId(e.target.value)}
-            placeholder="Enter User UUID"
+            value={targetNickname}
+            onChange={(e) => setTargetNickname(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addFriend()}
+            placeholder="Enter nickname"
           />
-          <button onClick={addFriend} disabled={!targetUserId}>
+          <button onClick={addFriend} disabled={!targetNickname.trim()}>
             Add
           </button>
         </div>
@@ -124,9 +148,18 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) =
                     <span
                       className="status-dot"
                       style={{ backgroundColor: getStatusColor(friend.status) }}
-                      title={friend.status}
                     />
-                    <span className="nickname">{friend.nickname}</span>
+                    <div className="friend-name-group">
+                      <button
+                        className="friend-nickname-btn"
+                        onClick={(e) => handleNicknameClick(e, friend.id)}
+                      >
+                        {friend.nickname}
+                      </button>
+                      <span className="friend-status-label" style={{ color: getStatusColor(friend.status) }}>
+                        {getStatusLabel(friend.status)}
+                      </span>
+                    </div>
                   </div>
                   <button
                     className="remove-btn"
@@ -169,6 +202,29 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentUserId }) =
           </ul>
         )}
       </div>
+
+      {popup && (
+        <div
+          className="friend-profile-popup"
+          style={{ top: popup.y, left: Math.min(popup.x, window.innerWidth - 200) }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="friend-profile-popup-header">
+            <img
+              src={popup.user.avatar || '/default_avatar.png'}
+              alt="avatar"
+              className="friend-profile-popup-avatar"
+            />
+            <span className="friend-profile-popup-nickname">{popup.user.nickname}</span>
+          </div>
+          <div className="friend-profile-popup-stats">
+            승: {popup.user.wins} / 패: {popup.user.losses}
+          </div>
+          <button className="friend-profile-popup-close" onClick={() => setPopup(null)}>
+            닫기
+          </button>
+        </div>
+      )}
     </aside>
   );
 };

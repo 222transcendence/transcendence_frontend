@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { Footer } from '../components/Footer';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -134,6 +135,7 @@ export default function LoginPage() {
         Don't have an account?
         <Link to="/signup" className="auth-link">Sign up</Link>
       </div>
+      <Footer />
     </div>
   );
 }

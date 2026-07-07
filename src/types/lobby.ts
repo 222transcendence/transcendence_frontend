@@ -30,8 +30,8 @@ export interface LobbyServerMessage {
 
 export interface LobbyClientMessage {
   LIST_ROOMS: Record<string, never>;
-  CREATE_ROOM: { characterId: string };
-  JOIN_ROOM: { roomId: string; characterId: string };
+  CREATE_ROOM: { characterId: number };
+  JOIN_ROOM: { roomId: string; characterId: number };
   GET_ROOM: { roomId: string };
   LEAVE_ROOM: { roomId: string };
   SET_READY: { roomId: string; ready: boolean };

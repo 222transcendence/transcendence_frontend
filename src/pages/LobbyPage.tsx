@@ -78,15 +78,25 @@ export default function LobbyPage() {
     };
   }, [navigate]);
 
+  const mapCharacterIdToNumber = (charId: string): number => {
+    if (charId === 'magician') return 1;
+    if (charId === 'knight') return 2;
+    if (charId === 'gunner') return 3;
+    return 1;
+  };
+
   const handleCreateRoom = (characterId: string) => {
     awaitingOwnRoomRef.current = true;
-    socketRef.current?.send('CREATE_ROOM', { characterId });
+    socketRef.current?.send('CREATE_ROOM', { characterId: mapCharacterIdToNumber(characterId) });
     setIsCreatingRoom(false);
   };
 
   const handleJoinRoom = (characterId: string) => {
     if (!pendingJoinRoom) return;
-    socketRef.current?.send('JOIN_ROOM', { roomId: pendingJoinRoom.id, characterId });
+    socketRef.current?.send('JOIN_ROOM', {
+      roomId: pendingJoinRoom.id,
+      characterId: mapCharacterIdToNumber(characterId),
+    });
     navigate(`/lobby/${pendingJoinRoom.id}`);
     setPendingJoinRoom(null);
   };

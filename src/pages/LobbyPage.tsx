@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import ChatPanel from '../components/ChatPanel';
+import { io, Socket } from 'socket.io-client';
+import { fetchChatHistory } from '../api/client';
+import type { ChatMessage } from '../types/chat';
 import { LobbySocket } from '../api/lobbySocket';
 import {
   fetchMyProfile, updateMyProfile, uploadMyAvatar, deleteMyAvatar,
@@ -209,27 +211,32 @@ export default function LobbyPage() {
           <LobbyTab
             rooms={rooms} isConnecting={isConnecting} connectionError={connectionError}
             onCreateRoom={() => setIsCreatingRoom(true)} onJoinRoom={setPendingJoinRoom}
+            currentUserId={myUserId}
           />
         )}
         {tab === 'friends' && (
-          <FriendsTab
-            friends={friends} pendingRequests={pendingRequests}
-            addNickname={addNickname} addMsg={addMsg}
-            onAddNicknameChange={setAddNickname} onAddFriend={handleAddFriend}
-            onRespond={handleRespondRequest} onRemove={handleRemoveFriend}
-            onFriendClick={setFriendPopup}
-          />
+          <div style={{ flex: 1, overflowY: 'auto' as const }}>
+            <FriendsTab
+              friends={friends} pendingRequests={pendingRequests}
+              addNickname={addNickname} addMsg={addMsg}
+              onAddNicknameChange={setAddNickname} onAddFriend={handleAddFriend}
+              onRespond={handleRespondRequest} onRemove={handleRemoveFriend}
+              onFriendClick={setFriendPopup}
+            />
+          </div>
         )}
-        {tab === 'stats' && <StatsTab stats={stats} userId={myUserId} />}
+        {tab === 'stats' && <div style={{ flex: 1, overflowY: 'auto' as const }}><StatsTab stats={stats} userId={myUserId} /></div>}
         {tab === 'settings' && (
-          <SettingsTab
-            nicknameInput={nicknameInput} nicknameMsg={nicknameMsg}
-            avatarMsg={avatarMsg} myAvatar={myAvatar}
-            isUploadingAvatar={isUploadingAvatar} isDeletingAvatar={isDeletingAvatar}
-            avatarFileRef={avatarFileRef}
-            onNicknameChange={setNicknameInput} onSaveNickname={handleSaveNickname}
-            onAvatarSelect={handleAvatarSelect} onDeleteAvatar={handleDeleteAvatar}
-          />
+          <div style={{ flex: 1, overflowY: 'auto' as const }}>
+            <SettingsTab
+              nicknameInput={nicknameInput} nicknameMsg={nicknameMsg}
+              avatarMsg={avatarMsg} myAvatar={myAvatar}
+              isUploadingAvatar={isUploadingAvatar} isDeletingAvatar={isDeletingAvatar}
+              avatarFileRef={avatarFileRef}
+              onNicknameChange={setNicknameInput} onSaveNickname={handleSaveNickname}
+              onAvatarSelect={handleAvatarSelect} onDeleteAvatar={handleDeleteAvatar}
+            />
+          </div>
         )}
       </main>
 
@@ -243,53 +250,153 @@ export default function LobbyPage() {
         <FriendProfilePopup friend={friendPopup} onClose={() => setFriendPopup(null)} />
       )}
 
-      {myUserId && <ChatPanel currentUserId={myUserId} />}
     </div>
   );
 }
 
 // ── Sub-tabs ──────────────────────────────────────────────────────────────────
 
-function LobbyTab({ rooms, isConnecting, connectionError, onCreateRoom, onJoinRoom }: {
+function LobbyTab({ rooms, isConnecting, connectionError, onCreateRoom, onJoinRoom, currentUserId }: {
   rooms: Room[]; isConnecting: boolean; connectionError: string;
   onCreateRoom: () => void; onJoinRoom: (room: Room) => void;
+  currentUserId: string;
 }) {
   return (
-    <div>
-      <div style={S.sectionHeader}>
-        <div>
-          <div style={S.sectionTitle}>게임 로비</div>
-          <div style={S.sectionSub}>{rooms.length}개 방이 열려있습니다</div>
+    <div style={{ display: 'flex', flexDirection: 'column' as const, height: '100%' }}>
+      {/* Rooms section — scrollable */}
+      <div style={{ flex: 1, overflowY: 'auto' as const, paddingBottom: 12 }}>
+        <div style={S.sectionHeader}>
+          <div>
+            <div style={S.sectionTitle}>게임 로비</div>
+            <div style={S.sectionSub}>{rooms.length}개 방이 열려있습니다</div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={onCreateRoom} disabled={isConnecting} style={S.primaryBtn}>+ 방 만들기</button>
+            <button disabled style={{ ...S.ghostBtn, opacity: 0.4, cursor: 'not-allowed' }}>랜덤 매칭</button>
+            <button disabled style={{ ...S.ghostBtn, opacity: 0.4, cursor: 'not-allowed' }}>AI 대전</button>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={onCreateRoom} disabled={isConnecting} style={S.primaryBtn}>+ 방 만들기</button>
-          <button disabled style={{ ...S.ghostBtn, opacity: 0.4, cursor: 'not-allowed' }}>랜덤 매칭</button>
-          <button disabled style={{ ...S.ghostBtn, opacity: 0.4, cursor: 'not-allowed' }}>AI 대전</button>
-        </div>
-      </div>
-      {connectionError && <div style={S.errorBanner}>{connectionError}</div>}
-      {isConnecting ? (
-        <div style={S.emptyState}>로비에 연결 중…</div>
-      ) : rooms.length === 0 ? (
-        <div style={S.emptyState}>열린 방이 없습니다. 방을 만들어보세요!</div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {rooms.map(room => (
-            <div key={room.id} style={{ ...S.card, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <div style={S.cardTitle}>{room.host.nickname}의 방</div>
-                <div style={S.cardSub}>{room.guest ? '2/2 명 · 게임 중' : '1/2 명 · 대기 중'}</div>
+        {connectionError && <div style={S.errorBanner}>{connectionError}</div>}
+        {isConnecting ? (
+          <div style={S.emptyState}>로비에 연결 중…</div>
+        ) : rooms.length === 0 ? (
+          <div style={S.emptyState}>열린 방이 없습니다. 방을 만들어보세요!</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 10 }}>
+            {rooms.map(room => (
+              <div key={room.id} style={{ ...S.card, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={S.cardTitle}>{room.host.nickname}의 방</div>
+                  <div style={S.cardSub}>{room.guest ? '2/2 명 · 게임 중' : '1/2 명 · 대기 중'}</div>
+                </div>
+                <button onClick={() => onJoinRoom(room)} disabled={!!room.guest} style={room.guest ? S.disabledBtn : S.primaryBtn}>
+                  {room.guest ? '참가 불가' : '참가하기'}
+                </button>
               </div>
-              <button onClick={() => onJoinRoom(room)} disabled={!!room.guest} style={room.guest ? S.disabledBtn : S.primaryBtn}>
-                {room.guest ? '참가 불가' : '참가하기'}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Global chat — fixed at bottom */}
+      {currentUserId && <GlobalChatPanel currentUserId={currentUserId} />}
     </div>
   );
 }
+
+function GlobalChatPanel({ currentUserId }: { currentUserId: string }) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState('');
+  const socketRef = useRef<Socket | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
+
+    const socket = io('/chat', { path: '/socketio', auth: { token: `Bearer ${token}` } });
+    socketRef.current = socket;
+
+    socket.on('connect', async () => {
+      try {
+        const history = await fetchChatHistory();
+        setMessages(history.filter(m => !m.roomId));
+      } catch { /* non-fatal */ }
+    });
+
+    socket.on('receive_message', (msg: ChatMessage) => {
+      if (!msg.roomId) setMessages(prev => [...prev, msg]);
+    });
+
+    socket.on('connect_error', () => socket.disconnect());
+
+    return () => { socket.disconnect(); socketRef.current = null; };
+  }, []);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const send = () => {
+    const content = input.trim();
+    if (!content || !socketRef.current?.connected) return;
+    socketRef.current.emit('send_message', { content, type: 'NORMAL' });
+    setInput('');
+  };
+
+  return (
+    <div style={CS.panel}>
+      <div style={CS.header}>
+        <span style={CS.headerLabel}>GLOBAL CHAT</span>
+      </div>
+      <div style={CS.messages}>
+        {messages.length === 0 && (
+          <div style={CS.empty}>아직 메시지가 없습니다</div>
+        )}
+        {messages.map(msg => {
+          const isMine = msg.sender.id === currentUserId;
+          return (
+            <div key={msg.id} style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              {!isMine && (
+                <span style={CS.nick}>{msg.sender.nickname}:</span>
+              )}
+              {isMine && (
+                <span style={{ ...CS.nick, color: '#12c8a8' }}>나:</span>
+              )}
+              <span style={CS.text}>{msg.content}</span>
+              <span style={CS.time}>{new Date(msg.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+          );
+        })}
+        <div ref={bottomRef} />
+      </div>
+      <div style={CS.inputRow}>
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && send()}
+          placeholder="메시지 입력..."
+          style={CS.input}
+        />
+        <button onClick={send} disabled={!input.trim()} style={{ ...CS.sendBtn, opacity: input.trim() ? 1 : 0.4 }}>전송</button>
+      </div>
+    </div>
+  );
+}
+
+const CS = {
+  panel: { borderTop: '1px solid rgba(255,255,255,.07)', display: 'flex', flexDirection: 'column' as const, height: 220, flex: 'none' as const },
+  header: { padding: '8px 0 6px', display: 'flex', alignItems: 'center' },
+  headerLabel: { fontFamily: "'JetBrains Mono',monospace", fontSize: 9.5, letterSpacing: '.14em', color: '#3a4256' },
+  messages: { flex: 1, overflowY: 'auto' as const, display: 'flex', flexDirection: 'column' as const, gap: 5 },
+  empty: { fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: '#3a4256', textAlign: 'center' as const, paddingTop: 16 },
+  nick: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 13, color: '#5c6a8a', whiteSpace: 'nowrap' as const, flex: 'none' as const },
+  text: { fontFamily: "'Inter',sans-serif", fontSize: 13, color: '#c7cede', wordBreak: 'break-word' as const, flex: 1 },
+  time: { fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: '#2a3246', whiteSpace: 'nowrap' as const, flex: 'none' as const },
+  inputRow: { display: 'flex', gap: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,.05)', marginTop: 4 },
+  input: { flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,.1)', background: 'rgba(255,255,255,.04)', color: '#e2e8f5', fontFamily: "'Inter',sans-serif", fontSize: 13, outline: 'none' },
+  sendBtn: { padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(18,200,168,.4)', background: 'rgba(18,200,168,.08)', color: '#12c8a8', fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 13, cursor: 'pointer' },
+} as const;
 
 function FriendsTab({ friends, pendingRequests, addNickname, addMsg, onAddNicknameChange, onAddFriend, onRespond, onRemove, onFriendClick }: {
   friends: Friend[]; pendingRequests: PendingRequest[]; addNickname: string; addMsg: string;
@@ -474,7 +581,7 @@ const S = {
   navList: { display: 'flex', flexDirection: 'column' as const, gap: 2, flex: 1 },
   navBtn: { display: 'flex', alignItems: 'center', gap: 9, padding: '9px 11px', borderRadius: 8, border: 'none', background: 'transparent', color: '#5c6a8a', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 as const, fontSize: 13, cursor: 'pointer', textAlign: 'left' as const },
   navBtnActive: { background: 'rgba(18,200,168,.1)', color: '#12c8a8', border: '1px solid rgba(18,200,168,.25)' },
-  main: { flex: 1, padding: '28px 24px', overflowY: 'auto' as const, maxWidth: 760 },
+  main: { flex: 1, padding: '28px 24px 20px', display: 'flex', flexDirection: 'column' as const, height: '100vh', overflow: 'hidden', minWidth: 0 },
   sectionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 18, flexWrap: 'wrap' as const, gap: 10 },
   sectionTitle: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 22, color: '#e2e8f5' },
   sectionSub: { fontFamily: "'JetBrains Mono',monospace", fontSize: 10.5, color: '#5c6a8a', marginTop: 3 },

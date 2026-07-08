@@ -6,8 +6,8 @@ interface RoomCardProps {
   onJoin: (room: Room) => void;
 }
 
-function characterName(characterId: string): string {
-  return CHARACTERS.find((c) => c.id === characterId)?.name ?? characterId;
+function characterName(characterId: number): string {
+  return CHARACTERS.find((c) => c.id === characterId)?.name ?? String(characterId);
 }
 
 export default function RoomCard({ room, onJoin }: RoomCardProps) {

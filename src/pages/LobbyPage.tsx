@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { LobbySocket } from '../api/lobbySocket';
 import {
-  fetchMyProfile, updateMyProfile, uploadMyAvatar,
+  fetchMyProfile, updateMyProfile, uploadMyAvatar, deleteMyAvatar,
   getFriends, removeFriend,
   sendFriendRequestByNickname, getPendingRequests, respondFriendRequest,
   type PendingRequest,
@@ -31,6 +31,7 @@ export default function LobbyPage() {
   const [connectionError, setConnectionError] = useState('');
   const [pendingJoinRoom, setPendingJoinRoom] = useState<Room | null>(null);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   // Friends
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -39,10 +40,12 @@ export default function LobbyPage() {
   const [addMsg, setAddMsg] = useState('');
   const [friendPopup, setFriendPopup] = useState<Friend | null>(null);
 
-  // Settings
+  // Settings — separate message states
   const [nicknameInput, setNicknameInput] = useState('');
-  const [settingsMsg, setSettingsMsg] = useState('');
+  const [nicknameMsg, setNicknameMsg] = useState('');
+  const [avatarMsg, setAvatarMsg] = useState('');
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isDeletingAvatar, setIsDeletingAvatar] = useState(false);
 
   // Stats
   const [stats, setStats] = useState<Stats | null>(null);
@@ -133,45 +136,69 @@ export default function LobbyPage() {
 
   const handleSaveNickname = async () => {
     if (!nicknameInput.trim()) return;
-    try { await updateMyProfile(nicknameInput.trim()); setMyNickname(nicknameInput.trim()); setSettingsMsg('닉네임이 변경되었습니다.'); }
-    catch { setSettingsMsg('변경 실패: 이미 사용 중인 닉네임입니다.'); }
+    try { await updateMyProfile(nicknameInput.trim()); setMyNickname(nicknameInput.trim()); setNicknameMsg('닉네임이 변경되었습니다.'); }
+    catch { setNicknameMsg('변경 실패: 이미 사용 중인 닉네임입니다.'); }
   };
 
   const handleAvatarSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setIsUploadingAvatar(true);
+    setAvatarMsg('');
     try {
       const updated = await uploadMyAvatar(file);
       setMyAvatar(updated.avatar ?? '');
-      setSettingsMsg('프로필 사진이 변경되었습니다.');
-    } catch { setSettingsMsg('업로드 실패: 이미지 파일을 확인해주세요.'); }
+      setAvatarMsg('프로필 사진이 변경되었습니다.');
+    } catch { setAvatarMsg('업로드 실패: 이미지 파일을 확인해주세요.'); }
     finally { setIsUploadingAvatar(false); if (avatarFileRef.current) avatarFileRef.current.value = ''; }
   };
 
+  const handleDeleteAvatar = async () => {
+    setIsDeletingAvatar(true);
+    setAvatarMsg('');
+    try {
+      await deleteMyAvatar();
+      setMyAvatar('');
+      setAvatarMsg('프로필 사진이 삭제되었습니다.');
+    } catch { setAvatarMsg('삭제 실패: 다시 시도해주세요.'); }
+    finally { setIsDeletingAvatar(false); }
+  };
+
   return (
-    <div style={S.page}>
+    <div style={S.page} onClick={() => setProfileMenuOpen(false)}>
       {/* Sidebar */}
       <nav style={S.sidebar}>
         <div style={S.logo}>TRANSCENDENCE</div>
-        <div style={S.userChip}>
-          <div style={{ ...S.avatar, backgroundImage: myAvatar ? `url(${myAvatar})` : 'none' }} />
-          <div>
-            <div style={S.userName}>{myNickname || '…'}</div>
-            <div style={S.userOnline}>● Online</div>
-          </div>
+
+        {/* Profile card — clickable, shows dropdown */}
+        <div style={{ position: 'relative' as const }}>
+          <button
+            onClick={e => { e.stopPropagation(); setProfileMenuOpen(o => !o); }}
+            style={S.userChip}
+          >
+            <div style={{ ...S.avatar, backgroundImage: myAvatar ? `url(${myAvatar})` : 'none' }} />
+            <div style={{ flex: 1, textAlign: 'left' as const }}>
+              <div style={S.userName}>{myNickname || '…'}</div>
+              <div style={S.userOnline}>● Online</div>
+            </div>
+            <div style={{ color: '#5c6a8a', fontSize: 10 }}>{profileMenuOpen ? '▲' : '▼'}</div>
+          </button>
+          {profileMenuOpen && (
+            <div style={S.profileDropdown} onClick={e => e.stopPropagation()}>
+              <Link to={`/profile`} style={S.dropdownItem} onClick={() => setProfileMenuOpen(false)}>내 프로필</Link>
+              <Link to="/leaderboard" style={S.dropdownItem} onClick={() => setProfileMenuOpen(false)}>리더보드</Link>
+              <div style={S.dropdownDivider} />
+              <button onClick={() => { localStorage.clear(); navigate('/login'); }} style={S.dropdownDangerItem}>로그아웃</button>
+            </div>
+          )}
         </div>
+
         <div style={S.navList}>
           {(['lobby', 'friends', 'stats', 'settings'] as Tab[]).map(t => (
             <button key={t} onClick={() => setTab(t)} style={{ ...S.navBtn, ...(tab === t ? S.navBtnActive : {}) }}>
               {NAV_ICON[t]} {NAV_LABEL[t]}
             </button>
           ))}
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-          <button onClick={() => navigate('/leaderboard')} style={S.sideLink}>리더보드</button>
-          <button onClick={() => navigate('/profile')} style={S.sideLink}>내 프로필</button>
-          <button onClick={() => { localStorage.clear(); navigate('/login'); }} style={S.logoutBtn}>로그아웃</button>
         </div>
       </nav>
 
@@ -195,11 +222,12 @@ export default function LobbyPage() {
         {tab === 'stats' && <StatsTab stats={stats} userId={myUserId} />}
         {tab === 'settings' && (
           <SettingsTab
-            nicknameInput={nicknameInput} settingsMsg={settingsMsg}
-            myAvatar={myAvatar} isUploadingAvatar={isUploadingAvatar}
+            nicknameInput={nicknameInput} nicknameMsg={nicknameMsg}
+            avatarMsg={avatarMsg} myAvatar={myAvatar}
+            isUploadingAvatar={isUploadingAvatar} isDeletingAvatar={isDeletingAvatar}
             avatarFileRef={avatarFileRef}
             onNicknameChange={setNicknameInput} onSaveNickname={handleSaveNickname}
-            onAvatarSelect={handleAvatarSelect}
+            onAvatarSelect={handleAvatarSelect} onDeleteAvatar={handleDeleteAvatar}
           />
         )}
       </main>
@@ -278,7 +306,7 @@ function FriendsTab({ friends, pendingRequests, addNickname, addMsg, onAddNickna
           <input value={addNickname} onChange={e => onAddNicknameChange(e.target.value)} onKeyDown={e => e.key === 'Enter' && onAddFriend()} placeholder="닉네임 입력" style={S.input} />
           <button onClick={onAddFriend} style={S.primaryBtn}>요청</button>
         </div>
-        {addMsg && <div style={{ marginTop: 6, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#12c8a8' }}>{addMsg}</div>}
+        {addMsg && <div style={S.infoText}>{addMsg}</div>}
       </div>
 
       {/* Pending requests — always visible */}
@@ -357,11 +385,13 @@ function StatsTab({ stats, userId }: { stats: Stats | null; userId: string }) {
   );
 }
 
-function SettingsTab({ nicknameInput, settingsMsg, myAvatar, isUploadingAvatar, avatarFileRef, onNicknameChange, onSaveNickname, onAvatarSelect }: {
-  nicknameInput: string; settingsMsg: string; myAvatar: string; isUploadingAvatar: boolean;
+function SettingsTab({ nicknameInput, nicknameMsg, avatarMsg, myAvatar, isUploadingAvatar, isDeletingAvatar, avatarFileRef, onNicknameChange, onSaveNickname, onAvatarSelect, onDeleteAvatar }: {
+  nicknameInput: string; nicknameMsg: string; avatarMsg: string; myAvatar: string;
+  isUploadingAvatar: boolean; isDeletingAvatar: boolean;
   avatarFileRef: React.RefObject<HTMLInputElement | null>;
   onNicknameChange: (v: string) => void; onSaveNickname: () => void;
   onAvatarSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onDeleteAvatar: () => void;
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -371,14 +401,20 @@ function SettingsTab({ nicknameInput, settingsMsg, myAvatar, isUploadingAvatar, 
       <div style={S.card}>
         <div style={S.cardTitle}>프로필 사진</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
-          <div style={{ ...S.avatar, backgroundImage: myAvatar ? `url(${myAvatar})` : 'none', width: 56, height: 56, border: '2px solid rgba(18,200,168,.4)', borderRadius: '50%' }} />
+          <div style={{ width: 56, height: 56, borderRadius: '50%', background: myAvatar ? 'transparent' : '#1a2040', border: '2px solid rgba(18,200,168,.4)', backgroundImage: myAvatar ? `url(${myAvatar})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <input ref={avatarFileRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={onAvatarSelect} />
-            <button onClick={() => avatarFileRef.current?.click()} disabled={isUploadingAvatar} style={S.primaryBtn}>
+            <button onClick={() => avatarFileRef.current?.click()} disabled={isUploadingAvatar || isDeletingAvatar} style={S.primaryBtn}>
               {isUploadingAvatar ? '업로드 중…' : '사진 변경'}
             </button>
+            {myAvatar && (
+              <button onClick={onDeleteAvatar} disabled={isUploadingAvatar || isDeletingAvatar} style={S.dangerBtnSm}>
+                {isDeletingAvatar ? '삭제 중…' : '사진 삭제'}
+              </button>
+            )}
           </div>
         </div>
+        {avatarMsg && <div style={S.infoText}>{avatarMsg}</div>}
       </div>
 
       {/* Nickname */}
@@ -388,7 +424,7 @@ function SettingsTab({ nicknameInput, settingsMsg, myAvatar, isUploadingAvatar, 
           <input value={nicknameInput} onChange={e => onNicknameChange(e.target.value)} placeholder="새 닉네임" style={S.input} />
           <button onClick={onSaveNickname} style={S.primaryBtn}>저장</button>
         </div>
-        {settingsMsg && <div style={{ marginTop: 6, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#12c8a8' }}>{settingsMsg}</div>}
+        {nicknameMsg && <div style={S.infoText}>{nicknameMsg}</div>}
       </div>
     </div>
   );
@@ -400,7 +436,7 @@ function FriendProfilePopup({ friend, onClose }: { friend: Friend; onClose: () =
     <div style={{ position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={onClose}>
       <div style={{ background: '#0d1220', border: '1px solid rgba(255,255,255,.1)', borderRadius: 16, padding: '24px 20px', minWidth: 260, boxShadow: '0 16px 40px rgba(0,0,0,.5)' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#1a2040', border: '1.5px solid rgba(18,200,168,.4)', backgroundImage: (friend as any).avatar ? `url(${(friend as any).avatar})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }} />
+          <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#1a2040', border: '1.5px solid rgba(18,200,168,.4)', backgroundImage: friend.avatar ? `url(${friend.avatar})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }} />
           <div>
             <div style={{ fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 16, color: '#e2e8f5' }}>{friend.nickname}</div>
             <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: friend.status === 'ONLINE' ? '#12c8a8' : '#5c6a8a', marginTop: 2 }}>● {friend.status}</div>
@@ -424,15 +460,17 @@ const S = {
   page: { minHeight: '100vh', background: '#05070c', display: 'flex', fontFamily: "'Inter',sans-serif" },
   sidebar: { width: 220, minHeight: '100vh', background: '#0a0e1a', borderRight: '1px solid rgba(255,255,255,.06)', display: 'flex', flexDirection: 'column' as const, padding: '20px 14px', gap: 4, flex: 'none' as const },
   logo: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 13, letterSpacing: '.2em', color: '#12c8a8', marginBottom: 16 },
-  userChip: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px', borderRadius: 10, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.06)', marginBottom: 14 },
+  userChip: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px', borderRadius: 10, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.06)', marginBottom: 14, cursor: 'pointer', width: '100%', textAlign: 'left' as const },
   avatar: { width: 34, height: 34, borderRadius: '50%', background: '#1a2040', backgroundSize: 'cover', backgroundPosition: 'center', flex: 'none' as const },
   userName: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 13, color: '#e2e8f5' },
   userOnline: { fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: '#12c8a8', marginTop: 1 },
+  profileDropdown: { position: 'absolute' as const, top: '100%', left: 0, right: 0, marginTop: 4, background: '#0d1220', border: '1px solid rgba(255,255,255,.1)', borderRadius: 10, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,.4)', zIndex: 50 },
+  dropdownItem: { display: 'block', padding: '10px 14px', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 as const, fontSize: 13, color: '#c7cede', textDecoration: 'none', cursor: 'pointer', background: 'transparent', border: 'none', width: '100%', textAlign: 'left' as const },
+  dropdownDivider: { height: 1, background: 'rgba(255,255,255,.06)', margin: '2px 0' },
+  dropdownDangerItem: { display: 'block', padding: '10px 14px', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 as const, fontSize: 13, color: '#ef4a63', background: 'transparent', border: 'none', width: '100%', textAlign: 'left' as const, cursor: 'pointer' },
   navList: { display: 'flex', flexDirection: 'column' as const, gap: 2, flex: 1 },
   navBtn: { display: 'flex', alignItems: 'center', gap: 9, padding: '9px 11px', borderRadius: 8, border: 'none', background: 'transparent', color: '#5c6a8a', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 as const, fontSize: 13, cursor: 'pointer', textAlign: 'left' as const },
   navBtnActive: { background: 'rgba(18,200,168,.1)', color: '#12c8a8', border: '1px solid rgba(18,200,168,.25)' },
-  sideLink: { padding: '7px 11px', borderRadius: 7, border: '1px solid rgba(255,255,255,.08)', background: 'transparent', color: '#5c6a8a', fontFamily: "'JetBrains Mono',monospace", fontSize: 10, cursor: 'pointer', textAlign: 'left' as const },
-  logoutBtn: { padding: '8px 11px', borderRadius: 8, border: '1px solid rgba(239,74,99,.25)', background: 'transparent', color: '#ef4a63', fontFamily: "'JetBrains Mono',monospace", fontSize: 10.5, cursor: 'pointer' },
   main: { flex: 1, padding: '28px 24px', overflowY: 'auto' as const, maxWidth: 760 },
   sectionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 18, flexWrap: 'wrap' as const, gap: 10 },
   sectionTitle: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 22, color: '#e2e8f5' },
@@ -449,4 +487,5 @@ const S = {
   emptyState: { fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: '#5c6a8a', padding: '24px 0', textAlign: 'center' as const },
   errorBanner: { background: 'rgba(239,74,99,.1)', border: '1px solid rgba(239,74,99,.35)', borderRadius: 8, padding: '10px 14px', color: '#ef4a63', fontFamily: "'JetBrains Mono',monospace", fontSize: 11.5, marginBottom: 12 },
   friendAvatar: { width: 30, height: 30, borderRadius: '50%', background: '#1a2040', backgroundSize: 'cover', backgroundPosition: 'center', flex: 'none' as const },
+  infoText: { marginTop: 8, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#12c8a8' },
 } as const;

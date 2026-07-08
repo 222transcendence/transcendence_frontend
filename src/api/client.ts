@@ -92,6 +92,15 @@ export async function updateMyProfile(nickname: string): Promise<UserProfile> {
   return parseEnvelope<UserProfile>(response);
 }
 
+export async function deleteMyAvatar(): Promise<UserProfile> {
+  const response = await authorizedFetch('/api/users/me', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ avatar: null }),
+  });
+  return parseEnvelope<UserProfile>(response);
+}
+
 export async function uploadMyAvatar(file: File): Promise<UserProfile> {
   const formData = new FormData();
   formData.append('avatar', file);

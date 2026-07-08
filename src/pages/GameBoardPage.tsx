@@ -55,6 +55,7 @@ export default function GameBoardPage() {
   const [battleLog, setBattleLog] = useState<string[]>([]);
   const [leaveConfirm, setLeaveConfirm] = useState(false);
   const [oppCardHover, setOppCardHover] = useState(false);
+  const [oppStats, setOppStats] = useState<{ wins: number; losses: number; winRate: number } | null>(null);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hostNicknameRef = useRef('');
@@ -64,6 +65,7 @@ export default function GameBoardPage() {
   const myUserIdRef = useRef('');
   const myNicknameRef = useRef('');
   const opponentNicknameRef = useRef('');
+  const opponentUserIdRef = useRef('');
 
   useEffect(() => {
     fetchAllCards().then(cards => {
@@ -108,6 +110,8 @@ export default function GameBoardPage() {
     const oppNick = amHost ? (payload.guest?.nickname ?? '?') : payload.host.nickname;
     opponentNicknameRef.current = oppNick;
     setOpponentNickname(oppNick);
+    const oppId = amHost ? (payload.guest?.userId ?? '') : payload.host.userId;
+    opponentUserIdRef.current = oppId;
     setBoardState({
       phase: payload.phase,
       distance: payload.distance,
@@ -260,7 +264,16 @@ export default function GameBoardPage() {
         <div style={S.enemyZone}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
             <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}
-              onMouseEnter={() => setOppCardHover(true)} onMouseLeave={() => setOppCardHover(false)}>
+              onMouseEnter={() => {
+                setOppCardHover(true);
+                const uid = opponentUserIdRef.current;
+                if (uid && !oppStats) {
+                  fetch(`/api/game/users/${uid}/stats`, {
+                    headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
+                  }).then(r => r.json()).then(j => { if (j.data) setOppStats(j.data); }).catch(() => {});
+                }
+              }}
+              onMouseLeave={() => setOppCardHover(false)}>
               <div style={{ ...S.avatar, borderColor: '#ef4a63', background: '#1a0e12' }} />
               <div>
                 <div style={S.playerName}>{opponentNickname}</div>
@@ -281,9 +294,22 @@ export default function GameBoardPage() {
               </div>
               {oppCardHover && (
                 <div style={S.tooltip}>
-                  <div style={S.tooltipLabel}>상대 플레이어</div>
-                  <div style={{ fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: 13, color: '#e2e8f5' }}>{opponentNickname}</div>
-                  <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: '#8a93a8', marginTop: 4 }}>{boardState.opponentCardCount} cards in hand</div>
+                  <div style={S.tooltipLabel}>상대 전적</div>
+                  <div style={{ fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: 14, color: '#e2e8f5', marginBottom: 6 }}>{opponentNickname}</div>
+                  {!oppStats ? (
+                    <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: '#5c6a8a' }}>불러오는 중…</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, fontFamily: "'JetBrains Mono',monospace", fontSize: 10 }}>
+                        <span style={{ color: '#12c8a8' }}>승 {oppStats.wins}</span>
+                        <span style={{ color: '#ef4a63' }}>패 {oppStats.losses}</span>
+                        <span style={{ color: '#eab308' }}>{Math.round(oppStats.winRate * 100)}%</span>
+                      </div>
+                      <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,.1)', overflow: 'hidden', marginTop: 2 }}>
+                        <div style={{ height: '100%', borderRadius: 2, background: 'linear-gradient(90deg,#8b5cf6,#12c8a8)', width: `${Math.round(oppStats.winRate * 100)}%` }} />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

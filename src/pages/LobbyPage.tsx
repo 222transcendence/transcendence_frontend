@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
-import { fetchChatHistory } from '../api/client';
+import { fetchChatHistory, fetchLeaderboard } from '../api/gameStats';
+import type { LeaderboardEntry } from '../types/gameStats';
 import type { ChatMessage } from '../types/chat';
 import { LobbySocket } from '../api/lobbySocket';
 import {
-  fetchMyProfile, updateMyProfile, uploadMyAvatar, deleteMyAvatar,
+  fetchMyProfile,
   getFriends, removeFriend,
   sendFriendRequestByNickname, getPendingRequests, respondFriendRequest,
   type PendingRequest,
@@ -14,16 +15,13 @@ import CharacterSelectModal from '../components/CharacterSelectModal';
 import type { Room } from '../types/lobby';
 import type { Friend } from '../types/friend';
 
-type Tab = 'lobby' | 'friends' | 'stats' | 'settings';
-
-interface Stats { wins: number; losses: number; winRate: number; totalGames: number; }
+type Tab = 'lobby' | 'friends' | 'leaderboard';
 
 export default function LobbyPage() {
   const navigate = useNavigate();
   const socketRef = useRef<LobbySocket | null>(null);
   const myUserIdRef = useRef<string | null>(null);
   const awaitingOwnRoomRef = useRef(false);
-  const avatarFileRef = useRef<HTMLInputElement>(null);
 
   const [tab, setTab] = useState<Tab>('lobby');
   const [myNickname, setMyNickname] = useState('');
@@ -43,15 +41,8 @@ export default function LobbyPage() {
   const [addMsg, setAddMsg] = useState('');
   const [friendPopup, setFriendPopup] = useState<Friend | null>(null);
 
-  // Settings — separate message states
-  const [nicknameInput, setNicknameInput] = useState('');
-  const [nicknameMsg, setNicknameMsg] = useState('');
-  const [avatarMsg, setAvatarMsg] = useState('');
-  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-  const [isDeletingAvatar, setIsDeletingAvatar] = useState(false);
-
-  // Stats
-  const [stats, setStats] = useState<Stats | null>(null);
+  // Leaderboard
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
 
   useEffect(() => {
     fetchMyProfile().then(me => {
@@ -59,7 +50,6 @@ export default function LobbyPage() {
       setMyUserId(me.id);
       setMyNickname(me.nickname);
       setMyAvatar(me.avatar ?? '');
-      setNicknameInput(me.nickname);
     }).catch(() => navigate('/login', { replace: true }));
   }, [navigate]);
 
@@ -99,14 +89,9 @@ export default function LobbyPage() {
   }, []);
 
   useEffect(() => { if (tab === 'friends') loadFriends(); }, [tab, loadFriends]);
-
   useEffect(() => {
-    if (tab === 'stats' && myUserId) {
-      fetch(`/api/game/users/${myUserId}/stats`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
-      }).then(r => r.json()).then(j => { if (j.data) setStats(j.data); }).catch(() => {});
-    }
-  }, [tab, myUserId]);
+    if (tab === 'leaderboard') fetchLeaderboard().then(setLeaderboard).catch(() => {});
+  }, [tab]);
 
   const handleCreateRoom = (characterId: number) => {
     awaitingOwnRoomRef.current = true;
@@ -137,43 +122,13 @@ export default function LobbyPage() {
     setFriends(prev => prev.filter(f => f.id !== friendId));
   };
 
-  const handleSaveNickname = async () => {
-    if (!nicknameInput.trim()) return;
-    try { await updateMyProfile(nicknameInput.trim()); setMyNickname(nicknameInput.trim()); setNicknameMsg('닉네임이 변경되었습니다.'); }
-    catch { setNicknameMsg('변경 실패: 이미 사용 중인 닉네임입니다.'); }
-  };
-
-  const handleAvatarSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsUploadingAvatar(true);
-    setAvatarMsg('');
-    try {
-      const updated = await uploadMyAvatar(file);
-      setMyAvatar(updated.avatar ?? '');
-      setAvatarMsg('프로필 사진이 변경되었습니다.');
-    } catch { setAvatarMsg('업로드 실패: 이미지 파일을 확인해주세요.'); }
-    finally { setIsUploadingAvatar(false); if (avatarFileRef.current) avatarFileRef.current.value = ''; }
-  };
-
-  const handleDeleteAvatar = async () => {
-    setIsDeletingAvatar(true);
-    setAvatarMsg('');
-    try {
-      await deleteMyAvatar();
-      setMyAvatar('');
-      setAvatarMsg('프로필 사진이 삭제되었습니다.');
-    } catch { setAvatarMsg('삭제 실패: 다시 시도해주세요.'); }
-    finally { setIsDeletingAvatar(false); }
-  };
-
   return (
     <div style={S.page} onClick={() => setProfileMenuOpen(false)}>
       {/* Sidebar */}
       <nav style={S.sidebar}>
         <div style={S.logo}>TRANSCENDENCE</div>
 
-        {/* Profile card — clickable, shows dropdown */}
+        {/* Profile card — clickable dropdown */}
         <div style={{ position: 'relative' as const }}>
           <button
             onClick={e => { e.stopPropagation(); setProfileMenuOpen(o => !o); }}
@@ -188,8 +143,7 @@ export default function LobbyPage() {
           </button>
           {profileMenuOpen && (
             <div style={S.profileDropdown} onClick={e => e.stopPropagation()}>
-              <Link to={`/profile`} style={S.dropdownItem} onClick={() => setProfileMenuOpen(false)}>내 프로필</Link>
-              <Link to="/leaderboard" style={S.dropdownItem} onClick={() => setProfileMenuOpen(false)}>리더보드</Link>
+              <Link to="/profile" style={S.dropdownItem} onClick={() => setProfileMenuOpen(false)}>내 프로필</Link>
               <div style={S.dropdownDivider} />
               <button onClick={() => { localStorage.clear(); navigate('/login'); }} style={S.dropdownDangerItem}>로그아웃</button>
             </div>
@@ -197,7 +151,7 @@ export default function LobbyPage() {
         </div>
 
         <div style={S.navList}>
-          {(['lobby', 'friends', 'stats', 'settings'] as Tab[]).map(t => (
+          {(['lobby', 'friends', 'leaderboard'] as Tab[]).map(t => (
             <button key={t} onClick={() => setTab(t)} style={{ ...S.navBtn, ...(tab === t ? S.navBtnActive : {}) }}>
               {NAV_ICON[t]} {NAV_LABEL[t]}
             </button>
@@ -225,17 +179,9 @@ export default function LobbyPage() {
             />
           </div>
         )}
-        {tab === 'stats' && <div style={{ flex: 1, overflowY: 'auto' as const }}><StatsTab stats={stats} userId={myUserId} /></div>}
-        {tab === 'settings' && (
+        {tab === 'leaderboard' && (
           <div style={{ flex: 1, overflowY: 'auto' as const }}>
-            <SettingsTab
-              nicknameInput={nicknameInput} nicknameMsg={nicknameMsg}
-              avatarMsg={avatarMsg} myAvatar={myAvatar}
-              isUploadingAvatar={isUploadingAvatar} isDeletingAvatar={isDeletingAvatar}
-              avatarFileRef={avatarFileRef}
-              onNicknameChange={setNicknameInput} onSaveNickname={handleSaveNickname}
-              onAvatarSelect={handleAvatarSelect} onDeleteAvatar={handleDeleteAvatar}
-            />
+            <LeaderboardTab entries={leaderboard} myUserId={myUserId} />
           </div>
         )}
       </main>
@@ -247,14 +193,13 @@ export default function LobbyPage() {
         <CharacterSelectModal title={`${pendingJoinRoom.host.nickname}의 방에 참가`} onConfirm={handleJoinRoom} onCancel={() => setPendingJoinRoom(null)} />
       )}
       {friendPopup && (
-        <FriendProfilePopup friend={friendPopup} onClose={() => setFriendPopup(null)} />
+        <FriendProfilePopup friend={friendPopup} friendIds={friends.map(f => f.id)} onClose={() => setFriendPopup(null)} />
       )}
-
     </div>
   );
 }
 
-// ── Sub-tabs ──────────────────────────────────────────────────────────────────
+// ── Lobby tab ─────────────────────────────────────────────────────────────────
 
 function LobbyTab({ rooms, isConnecting, connectionError, onCreateRoom, onJoinRoom, currentUserId }: {
   rooms: Room[]; isConnecting: boolean; connectionError: string;
@@ -263,7 +208,6 @@ function LobbyTab({ rooms, isConnecting, connectionError, onCreateRoom, onJoinRo
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column' as const, height: '100%' }}>
-      {/* Rooms section — scrollable */}
       <div style={{ flex: 1, overflowY: 'auto' as const, paddingBottom: 12 }}>
         <div style={S.sectionHeader}>
           <div>
@@ -297,106 +241,12 @@ function LobbyTab({ rooms, isConnecting, connectionError, onCreateRoom, onJoinRo
           </div>
         )}
       </div>
-
-      {/* Global chat — fixed at bottom */}
       {currentUserId && <GlobalChatPanel currentUserId={currentUserId} />}
     </div>
   );
 }
 
-function GlobalChatPanel({ currentUserId }: { currentUserId: string }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState('');
-  const socketRef = useRef<Socket | null>(null);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const token = localStorage.getItem('accessToken');
-    if (!token) return;
-
-    const socket = io('/chat', { path: '/socketio', auth: { token: `Bearer ${token}` } });
-    socketRef.current = socket;
-
-    socket.on('connect', async () => {
-      try {
-        const history = await fetchChatHistory();
-        setMessages(history.filter(m => !m.roomId));
-      } catch { /* non-fatal */ }
-    });
-
-    socket.on('receive_message', (msg: ChatMessage) => {
-      if (!msg.roomId) setMessages(prev => [...prev, msg]);
-    });
-
-    socket.on('connect_error', () => socket.disconnect());
-
-    return () => { socket.disconnect(); socketRef.current = null; };
-  }, []);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const send = () => {
-    const content = input.trim();
-    if (!content || !socketRef.current?.connected) return;
-    socketRef.current.emit('send_message', { content, type: 'NORMAL' });
-    setInput('');
-  };
-
-  return (
-    <div style={CS.panel}>
-      <div style={CS.header}>
-        <span style={CS.headerLabel}>GLOBAL CHAT</span>
-      </div>
-      <div style={CS.messages}>
-        {messages.length === 0 && (
-          <div style={CS.empty}>아직 메시지가 없습니다</div>
-        )}
-        {messages.map(msg => {
-          const isMine = msg.sender.id === currentUserId;
-          return (
-            <div key={msg.id} style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-              {!isMine && (
-                <span style={CS.nick}>{msg.sender.nickname}:</span>
-              )}
-              {isMine && (
-                <span style={{ ...CS.nick, color: '#12c8a8' }}>나:</span>
-              )}
-              <span style={CS.text}>{msg.content}</span>
-              <span style={CS.time}>{new Date(msg.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
-            </div>
-          );
-        })}
-        <div ref={bottomRef} />
-      </div>
-      <div style={CS.inputRow}>
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && send()}
-          placeholder="메시지 입력..."
-          style={CS.input}
-        />
-        <button onClick={send} disabled={!input.trim()} style={{ ...CS.sendBtn, opacity: input.trim() ? 1 : 0.4 }}>전송</button>
-      </div>
-    </div>
-  );
-}
-
-const CS = {
-  panel: { borderTop: '1px solid rgba(255,255,255,.07)', display: 'flex', flexDirection: 'column' as const, height: 220, flex: 'none' as const },
-  header: { padding: '8px 0 6px', display: 'flex', alignItems: 'center' },
-  headerLabel: { fontFamily: "'JetBrains Mono',monospace", fontSize: 9.5, letterSpacing: '.14em', color: '#3a4256' },
-  messages: { flex: 1, overflowY: 'auto' as const, display: 'flex', flexDirection: 'column' as const, gap: 5 },
-  empty: { fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: '#3a4256', textAlign: 'center' as const, paddingTop: 16 },
-  nick: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 13, color: '#5c6a8a', whiteSpace: 'nowrap' as const, flex: 'none' as const },
-  text: { fontFamily: "'Inter',sans-serif", fontSize: 13, color: '#c7cede', wordBreak: 'break-word' as const, flex: 1 },
-  time: { fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: '#2a3246', whiteSpace: 'nowrap' as const, flex: 'none' as const },
-  inputRow: { display: 'flex', gap: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,.05)', marginTop: 4 },
-  input: { flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,.1)', background: 'rgba(255,255,255,.04)', color: '#e2e8f5', fontFamily: "'Inter',sans-serif", fontSize: 13, outline: 'none' },
-  sendBtn: { padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(18,200,168,.4)', background: 'rgba(18,200,168,.08)', color: '#12c8a8', fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 13, cursor: 'pointer' },
-} as const;
+// ── Friends tab ───────────────────────────────────────────────────────────────
 
 function FriendsTab({ friends, pendingRequests, addNickname, addMsg, onAddNicknameChange, onAddFriend, onRespond, onRemove, onFriendClick }: {
   friends: Friend[]; pendingRequests: PendingRequest[]; addNickname: string; addMsg: string;
@@ -406,10 +256,9 @@ function FriendsTab({ friends, pendingRequests, addNickname, addMsg, onAddNickna
   onFriendClick: (f: Friend) => void;
 }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 18 }}>
       <div style={S.sectionTitle}>친구 목록</div>
 
-      {/* Add */}
       <div style={S.card}>
         <div style={S.cardTitle}>친구 추가</div>
         <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
@@ -419,13 +268,12 @@ function FriendsTab({ friends, pendingRequests, addNickname, addMsg, onAddNickna
         {addMsg && <div style={S.infoText}>{addMsg}</div>}
       </div>
 
-      {/* Pending requests — always visible */}
       <div style={S.card}>
         <div style={S.cardTitle}>친구 요청 {pendingRequests.length > 0 && <span style={{ color: '#ef4a63', marginLeft: 6 }}>({pendingRequests.length})</span>}</div>
         {pendingRequests.length === 0 ? (
           <div style={{ ...S.cardSub, marginTop: 8 }}>받은 친구 요청이 없습니다.</div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8, marginTop: 10 }}>
             {pendingRequests.map(req => (
               <div key={req.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -442,13 +290,12 @@ function FriendsTab({ friends, pendingRequests, addNickname, addMsg, onAddNickna
         )}
       </div>
 
-      {/* Friend list */}
       <div style={S.card}>
         <div style={S.cardTitle}>친구 ({friends.length})</div>
         {friends.length === 0 ? (
           <div style={{ ...S.cardSub, marginTop: 8 }}>친구가 없습니다.</div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8, marginTop: 10 }}>
             {friends.map(f => (
               <div key={f.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <button onClick={() => onFriendClick(f)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
@@ -467,81 +314,53 @@ function FriendsTab({ friends, pendingRequests, addNickname, addMsg, onAddNickna
   );
 }
 
-function StatsTab({ stats, userId }: { stats: Stats | null; userId: string }) {
+// ── Leaderboard tab ───────────────────────────────────────────────────────────
+
+const MEDAL = ['🥇', '🥈', '🥉'];
+
+function LeaderboardTab({ entries, myUserId }: { entries: LeaderboardEntry[]; myUserId: string }) {
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-        <div style={S.sectionTitle}>내 통계</div>
-        {userId && <Link to={`/stats/${userId}`} style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#12c8a8', textDecoration: 'none' }}>전체 전적 →</Link>}
-      </div>
-      {!stats ? (
+      <div style={S.sectionTitle}>리더보드</div>
+      {entries.length === 0 ? (
         <div style={S.emptyState}>불러오는 중…</div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10 }}>
-          {[
-            { label: '승리', value: stats.wins, color: '#12c8a8' },
-            { label: '패배', value: stats.losses, color: '#ef4a63' },
-            { label: '승률', value: `${stats.winRate ?? 0}%`, color: '#eab308' },
-            { label: '총 게임', value: stats.totalGames, color: '#8b5cf6' },
-          ].map(item => (
-            <div key={item.label} style={S.card}>
-              <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9.5, color: '#5c6a8a', letterSpacing: '.1em' }}>{item.label}</div>
-              <div style={{ fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 32, color: item.color as string, marginTop: 4 }}>{item.value}</div>
-            </div>
-          ))}
+        <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8, marginTop: 18 }}>
+          {entries.map((entry, i) => {
+            const winPct = Math.round(entry.winRate * 100);
+            const isMe = entry.id === myUserId;
+            return (
+              <div key={entry.id} style={{ ...S.card, display: 'flex', alignItems: 'center', gap: 14, borderColor: isMe ? 'rgba(18,200,168,.3)' : i === 0 ? 'rgba(255,215,0,.15)' : 'rgba(255,255,255,.06)' }}>
+                <div style={{ width: 28, textAlign: 'center' as const, flex: 'none' as const }}>
+                  {i < 3 ? <span style={{ fontSize: 18 }}>{MEDAL[i]}</span> : <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: '#5c6a8a' }}>#{i + 1}</span>}
+                </div>
+                <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#1a2040', backgroundSize: 'cover', backgroundPosition: 'center', backgroundImage: entry.avatar ? `url(${entry.avatar})` : 'none', flex: 'none' as const }} />
+                <Link to={`/stats/${entry.id}`} style={{ flex: 1, color: isMe ? '#12c8a8' : '#c7cede', textDecoration: 'none', fontFamily: "'Inter',sans-serif", fontWeight: 600, fontSize: 14 }}>
+                  {entry.nickname}{isMe && ' (나)'}
+                </Link>
+                <div style={{ width: 80, height: 5, borderRadius: 3, background: '#182236', overflow: 'hidden', flex: 'none' as const }}>
+                  <div style={{ height: '100%', background: 'linear-gradient(90deg,#8b5cf6,#12c8a8)', borderRadius: 3, width: `${winPct}%` }} />
+                </div>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#8a93a8', minWidth: 38, textAlign: 'right' as const }}>{winPct}%</span>
+                <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, minWidth: 72 }}>
+                  <span style={{ color: '#12c8a8', fontWeight: 700 }}>{entry.wins}W</span>
+                  <span style={{ color: '#3a4256', margin: '0 4px' }}>/</span>
+                  <span style={{ color: '#ef4a63', fontWeight: 700 }}>{entry.losses}L</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
 
-function SettingsTab({ nicknameInput, nicknameMsg, avatarMsg, myAvatar, isUploadingAvatar, isDeletingAvatar, avatarFileRef, onNicknameChange, onSaveNickname, onAvatarSelect, onDeleteAvatar }: {
-  nicknameInput: string; nicknameMsg: string; avatarMsg: string; myAvatar: string;
-  isUploadingAvatar: boolean; isDeletingAvatar: boolean;
-  avatarFileRef: React.RefObject<HTMLInputElement | null>;
-  onNicknameChange: (v: string) => void; onSaveNickname: () => void;
-  onAvatarSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onDeleteAvatar: () => void;
-}) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      <div style={S.sectionTitle}>설정</div>
+// ── Friend profile popup ──────────────────────────────────────────────────────
 
-      {/* Avatar */}
-      <div style={S.card}>
-        <div style={S.cardTitle}>프로필 사진</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
-          <div style={{ width: 56, height: 56, borderRadius: '50%', background: myAvatar ? 'transparent' : '#1a2040', border: '2px solid rgba(18,200,168,.4)', backgroundImage: myAvatar ? `url(${myAvatar})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <input ref={avatarFileRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={onAvatarSelect} />
-            <button onClick={() => avatarFileRef.current?.click()} disabled={isUploadingAvatar || isDeletingAvatar} style={S.primaryBtn}>
-              {isUploadingAvatar ? '업로드 중…' : '사진 변경'}
-            </button>
-            {myAvatar && (
-              <button onClick={onDeleteAvatar} disabled={isUploadingAvatar || isDeletingAvatar} style={S.dangerBtnSm}>
-                {isDeletingAvatar ? '삭제 중…' : '사진 삭제'}
-              </button>
-            )}
-          </div>
-        </div>
-        {avatarMsg && <div style={S.infoText}>{avatarMsg}</div>}
-      </div>
-
-      {/* Nickname */}
-      <div style={S.card}>
-        <div style={S.cardTitle}>닉네임 변경</div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-          <input value={nicknameInput} onChange={e => onNicknameChange(e.target.value)} placeholder="새 닉네임" style={S.input} />
-          <button onClick={onSaveNickname} style={S.primaryBtn}>저장</button>
-        </div>
-        {nicknameMsg && <div style={S.infoText}>{nicknameMsg}</div>}
-      </div>
-    </div>
-  );
-}
-
-function FriendProfilePopup({ friend, onClose }: { friend: Friend; onClose: () => void }) {
+function FriendProfilePopup({ friend, friendIds, onClose }: { friend: Friend; friendIds: string[]; onClose: () => void }) {
   const navigate = useNavigate();
+  const isFriend = friendIds.includes(friend.id);
   return (
     <div style={{ position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={onClose}>
       <div style={{ background: '#0d1220', border: '1px solid rgba(255,255,255,.1)', borderRadius: 16, padding: '24px 20px', minWidth: 260, boxShadow: '0 16px 40px rgba(0,0,0,.5)' }} onClick={e => e.stopPropagation()}>
@@ -556,14 +375,100 @@ function FriendProfilePopup({ friend, onClose }: { friend: Friend; onClose: () =
           <button onClick={() => { navigate(`/stats/${friend.id}`); onClose(); }} style={{ ...S.primaryBtn, flex: 1 }}>전적 보기</button>
           <button onClick={() => { navigate(`/profile/${friend.id}`); onClose(); }} style={{ ...S.ghostBtn, flex: 1 }}>프로필</button>
         </div>
+        {!isFriend && (
+          <div style={{ marginTop: 8 }}>
+            <button style={{ ...S.primaryBtn, width: '100%' }} onClick={async () => {
+              try {
+                const { sendFriendRequest } = await import('../api/client');
+                await sendFriendRequest(friend.id); onClose();
+              } catch { /* already sent */ }
+            }}>친구 추가</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Global chat ───────────────────────────────────────────────────────────────
+
+function GlobalChatPanel({ currentUserId }: { currentUserId: string }) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [height, setHeight] = useState(220);
+  const socketRef = useRef<Socket | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const dragStartY = useRef(0);
+  const dragStartH = useRef(0);
+
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
+    const socket = io('/chat', { path: '/socketio', auth: { token: `Bearer ${token}` } });
+    socketRef.current = socket;
+    socket.on('connect', async () => {
+      try { const h = await fetchChatHistory(); setMessages(h.filter(m => !m.roomId)); } catch { /* ok */ }
+    });
+    socket.on('receive_message', (msg: ChatMessage) => { if (!msg.roomId) setMessages(prev => [...prev, msg]); });
+    socket.on('connect_error', () => socket.disconnect());
+    return () => { socket.disconnect(); socketRef.current = null; };
+  }, []);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  const send = () => {
+    const content = input.trim();
+    if (!content || !socketRef.current?.connected) return;
+    socketRef.current.emit('send_message', { content, type: 'NORMAL' });
+    setInput('');
+  };
+
+  const onDragStart = (e: React.MouseEvent) => {
+    dragStartY.current = e.clientY;
+    dragStartH.current = height;
+    const onMove = (ev: MouseEvent) => {
+      const delta = dragStartY.current - ev.clientY;
+      setHeight(Math.max(120, Math.min(500, dragStartH.current + delta)));
+    };
+    const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  return (
+    <div style={{ ...CS.panel, height }}>
+      {/* Drag handle */}
+      <div style={CS.dragHandle} onMouseDown={onDragStart} title="드래그로 크기 조절">
+        <div style={CS.dragBar} />
+      </div>
+      <div style={CS.header}>
+        <span style={CS.headerLabel}>GLOBAL CHAT</span>
+      </div>
+      <div style={CS.messages}>
+        {messages.length === 0 && <div style={CS.empty}>아직 메시지가 없습니다</div>}
+        {messages.map(msg => {
+          const isMine = msg.sender.id === currentUserId;
+          return (
+            <div key={msg.id} style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <span style={{ ...CS.nick, color: isMine ? '#12c8a8' : '#5c6a8a' }}>{isMine ? '나' : msg.sender.nickname}:</span>
+              <span style={CS.text}>{msg.content}</span>
+              <span style={CS.time}>{new Date(msg.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+          );
+        })}
+        <div ref={bottomRef} />
+      </div>
+      <div style={CS.inputRow}>
+        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} placeholder="메시지 입력..." style={CS.input} />
+        <button onClick={send} disabled={!input.trim()} style={{ ...CS.sendBtn, opacity: input.trim() ? 1 : 0.4 }}>전송</button>
       </div>
     </div>
   );
 }
 
 // ── Icons & Labels ─────────────────────────────────────────────────────────────
-const NAV_ICON: Record<Tab, string> = { lobby: '⊞', friends: '♛', stats: '◈', settings: '⚙' };
-const NAV_LABEL: Record<Tab, string> = { lobby: '로비', friends: '친구', stats: '통계', settings: '설정' };
+const NAV_ICON: Record<Tab, string> = { lobby: '⊞', friends: '♛', leaderboard: '◈' };
+const NAV_LABEL: Record<Tab, string> = { lobby: '로비', friends: '친구', leaderboard: '리더보드' };
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const S = {
@@ -575,16 +480,16 @@ const S = {
   userName: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 13, color: '#e2e8f5' },
   userOnline: { fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: '#12c8a8', marginTop: 1 },
   profileDropdown: { position: 'absolute' as const, top: '100%', left: 0, right: 0, marginTop: 4, background: '#0d1220', border: '1px solid rgba(255,255,255,.1)', borderRadius: 10, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,.4)', zIndex: 50 },
-  dropdownItem: { display: 'block', padding: '10px 14px', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 as const, fontSize: 13, color: '#c7cede', textDecoration: 'none', cursor: 'pointer', background: 'transparent', border: 'none', width: '100%', textAlign: 'left' as const },
-  dropdownDivider: { height: 1, background: 'rgba(255,255,255,.06)', margin: '2px 0' },
+  dropdownItem: { display: 'block', padding: '10px 14px', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 as const, fontSize: 13, color: '#c7cede', textDecoration: 'none' as const },
+  dropdownDivider: { height: 1, background: 'rgba(255,255,255,.06)' },
   dropdownDangerItem: { display: 'block', padding: '10px 14px', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 as const, fontSize: 13, color: '#ef4a63', background: 'transparent', border: 'none', width: '100%', textAlign: 'left' as const, cursor: 'pointer' },
   navList: { display: 'flex', flexDirection: 'column' as const, gap: 2, flex: 1 },
   navBtn: { display: 'flex', alignItems: 'center', gap: 9, padding: '9px 11px', borderRadius: 8, border: 'none', background: 'transparent', color: '#5c6a8a', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 as const, fontSize: 13, cursor: 'pointer', textAlign: 'left' as const },
   navBtnActive: { background: 'rgba(18,200,168,.1)', color: '#12c8a8', border: '1px solid rgba(18,200,168,.25)' },
   main: { flex: 1, padding: '28px 24px 20px', display: 'flex', flexDirection: 'column' as const, height: '100vh', overflow: 'hidden', minWidth: 0 },
   sectionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 18, flexWrap: 'wrap' as const, gap: 10 },
-  sectionTitle: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 22, color: '#e2e8f5' },
-  sectionSub: { fontFamily: "'JetBrains Mono',monospace", fontSize: 10.5, color: '#5c6a8a', marginTop: 3 },
+  sectionTitle: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 22, color: '#e2e8f5', marginBottom: 4 },
+  sectionSub: { fontFamily: "'JetBrains Mono',monospace", fontSize: 10.5, color: '#5c6a8a' },
   card: { background: '#0d1220', border: '1px solid rgba(255,255,255,.07)', borderRadius: 12, padding: '14px 16px' },
   cardTitle: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 15, color: '#c7cede' },
   cardSub: { fontFamily: "'JetBrains Mono',monospace", fontSize: 10.5, color: '#5c6a8a', marginTop: 3 },
@@ -598,4 +503,20 @@ const S = {
   errorBanner: { background: 'rgba(239,74,99,.1)', border: '1px solid rgba(239,74,99,.35)', borderRadius: 8, padding: '10px 14px', color: '#ef4a63', fontFamily: "'JetBrains Mono',monospace", fontSize: 11.5, marginBottom: 12 },
   friendAvatar: { width: 30, height: 30, borderRadius: '50%', background: '#1a2040', backgroundSize: 'cover', backgroundPosition: 'center', flex: 'none' as const },
   infoText: { marginTop: 8, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#12c8a8' },
+} as const;
+
+const CS = {
+  panel: { borderTop: '1px solid rgba(255,255,255,.07)', display: 'flex', flexDirection: 'column' as const, flex: 'none' as const, userSelect: 'none' as const },
+  dragHandle: { display: 'flex', justifyContent: 'center', padding: '4px 0', cursor: 'ns-resize' },
+  dragBar: { width: 36, height: 3, borderRadius: 2, background: 'rgba(255,255,255,.12)' },
+  header: { padding: '4px 0 6px', display: 'flex', alignItems: 'center' },
+  headerLabel: { fontFamily: "'JetBrains Mono',monospace", fontSize: 9.5, letterSpacing: '.14em', color: '#3a4256' },
+  messages: { flex: 1, overflowY: 'auto' as const, display: 'flex', flexDirection: 'column' as const, gap: 5 },
+  empty: { fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: '#3a4256', textAlign: 'center' as const, paddingTop: 12 },
+  nick: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 13, whiteSpace: 'nowrap' as const, flex: 'none' as const },
+  text: { fontFamily: "'Inter',sans-serif", fontSize: 13, color: '#c7cede', wordBreak: 'break-word' as const, flex: 1 },
+  time: { fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: '#2a3246', whiteSpace: 'nowrap' as const, flex: 'none' as const },
+  inputRow: { display: 'flex', gap: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,.05)', marginTop: 4 },
+  input: { flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,.1)', background: 'rgba(255,255,255,.04)', color: '#e2e8f5', fontFamily: "'Inter',sans-serif", fontSize: 13, outline: 'none' },
+  sendBtn: { padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(18,200,168,.4)', background: 'rgba(18,200,168,.08)', color: '#12c8a8', fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 13, cursor: 'pointer' },
 } as const;

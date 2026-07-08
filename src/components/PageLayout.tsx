@@ -36,10 +36,7 @@ const S = {
     padding: '28px 20px',
     fontFamily: "'Inter',sans-serif",
   },
-  inner: {
-    maxWidth: 860,
-    margin: '0 auto',
-  },
+  inner: {},
   header: {
     display: 'flex',
     justifyContent: 'space-between',

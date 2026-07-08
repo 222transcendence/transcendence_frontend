@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { fetchMyProfile, fetchUserProfile, sendFriendRequest, updateMyProfile, uploadMyAvatar } from '../api/client';
 import type { PublicUserProfile, UserProfile } from '../types/user';
 import PageLayout from '../components/PageLayout';
 
 export default function ProfilePage() {
   const { id } = useParams<{ id?: string }>();
-  const navigate = useNavigate();
 
   const [me, setMe] = useState<UserProfile | null>(null);
   const [profile, setProfile] = useState<UserProfile | PublicUserProfile | null>(null);

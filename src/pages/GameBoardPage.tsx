@@ -75,7 +75,7 @@ export default function GameBoardPage() {
 
   useEffect(() => {
     fetchMyProfile().then(profile => {
-      setMyUserId(profile.id);
+
       setMyNickname(profile.nickname);
       myUserIdRef.current = profile.id;
       myNicknameRef.current = profile.nickname;

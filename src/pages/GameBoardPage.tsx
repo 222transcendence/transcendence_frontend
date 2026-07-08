@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchMyProfile, fetchAllCards, type CardInfo } from '../api/client';
+import ChatPanel from '../components/ChatPanel';
 import { useGameSocket } from '../hooks/useGameSocket';
 import ActionCard from '../components/game/ActionCard';
 import GameEndModal from '../components/game/GameEndModal';
@@ -241,6 +242,7 @@ export default function GameBoardPage() {
 
   return (
     <div style={S.page}>
+      <div style={S.outerLayout}>
       <div style={S.layout}>
 
         {/* ── Top bar ── */}
@@ -454,6 +456,12 @@ export default function GameBoardPage() {
         )}
       </div>
 
+      {/* In-game chat */}
+      <div style={S.chatColumn}>
+        <ChatPanel currentUserId={myUserIdRef.current} roomId={roomId} />
+      </div>
+      </div>
+
       {endModalData && (
         <GameEndModal
           summary={endModalData.summary}
@@ -477,12 +485,26 @@ const S = {
     alignItems: 'center',
     padding: '16px 12px',
   },
-  layout: {
+  outerLayout: {
     width: '100%',
-    maxWidth: 860,
+    maxWidth: 1100,
+    display: 'flex',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  layout: {
+    flex: 1,
+    minWidth: 0,
     display: 'flex',
     flexDirection: 'column' as const,
     gap: 10,
+  },
+  chatColumn: {
+    width: 240,
+    flex: 'none' as const,
+    height: 'calc(100vh - 32px)',
+    position: 'sticky' as const,
+    top: 16,
   },
   loadingWrap: {
     minHeight: '100vh',

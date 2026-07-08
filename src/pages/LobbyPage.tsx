@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import ChatPanel from '../components/ChatPanel';
 import { LobbySocket } from '../api/lobbySocket';
 import {
   fetchMyProfile, updateMyProfile, uploadMyAvatar, deleteMyAvatar,
@@ -241,6 +242,8 @@ export default function LobbyPage() {
       {friendPopup && (
         <FriendProfilePopup friend={friendPopup} onClose={() => setFriendPopup(null)} />
       )}
+
+      {myUserId && <ChatPanel currentUserId={myUserId} />}
     </div>
   );
 }

@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
-import HomePage from './pages/HomePage';
 import ProfilePage from './pages/ProfilePage';
 import LobbyPage from './pages/LobbyPage';
 import WaitingRoomPage from './pages/WaitingRoomPage';

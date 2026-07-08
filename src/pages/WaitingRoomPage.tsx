@@ -5,8 +5,8 @@ import { fetchMyProfile } from '../api/client';
 import type { Room } from '../types/lobby';
 import { CHARACTERS } from '../data/characters';
 
-function characterName(characterId: number): string {
-  return CHARACTERS.find((c) => c.id === characterId)?.name ?? String(characterId);
+function characterInfo(characterId: number) {
+  return CHARACTERS.find(c => c.id === characterId) ?? { name: String(characterId), color: '#5c6a8a' };
 }
 
 export default function WaitingRoomPage() {
@@ -26,54 +26,27 @@ export default function WaitingRoomPage() {
     let isMounted = true;
     let isTransitioningToGame = false;
 
-    const unsubscribers = [
-      socket.on('ROOM_UPDATED', ({ room: updatedRoom }) => {
-        if (isMounted && updatedRoom.id === roomId) setRoom(updatedRoom);
+    const unsubs = [
+      socket.on('ROOM_UPDATED', ({ room: r }) => { if (isMounted && r.id === roomId) setRoom(r); }),
+      socket.on('ROOM_CLOSED', ({ roomId: id }) => {
+        if (isMounted && id === roomId) { setErrorMessage('호스트가 방을 나갔습니다.'); setRoom(null); }
       }),
-      socket.on('ROOM_CLOSED', ({ roomId: closedRoomId }) => {
-        if (isMounted && closedRoomId === roomId) {
-          setErrorMessage('The host has left the room.');
-          setRoom(null);
-        }
+      socket.on('GAME_START', ({ roomId: id }) => {
+        if (id === roomId) { isTransitioningToGame = true; navigate(`/game/${roomId}`); }
       }),
-      socket.on('GAME_START', ({ roomId: startedRoomId }) => {
-        if (startedRoomId === roomId) {
-          isTransitioningToGame = true;
-          // Battle UI is tracked separately (backend Epic #2 core game engine).
-          navigate(`/game/${roomId}`);
-        }
-      }),
-      socket.on('ACTION_REJECTED', ({ message }) => {
-        if (isMounted) setErrorMessage(message);
-      }),
+      socket.on('ACTION_REJECTED', ({ message }) => { if (isMounted) setErrorMessage(message); }),
     ];
 
-    fetchMyProfile()
-      .then((me) => {
-        if (isMounted) setMyUserId(me.id);
-      })
-      .catch(() => undefined);
+    fetchMyProfile().then(me => { if (isMounted) setMyUserId(me.id); }).catch(() => {});
 
-    socket
-      .connect()
-      .then(() => {
-        if (!isMounted) return;
-        socket.send('GET_ROOM', { roomId });
-        setIsConnecting(false);
-      })
-      .catch(() => {
-        if (isMounted) {
-          setErrorMessage('Unable to connect to the lobby server.');
-          setIsConnecting(false);
-        }
-      });
+    socket.connect()
+      .then(() => { if (!isMounted) return; socket.send('GET_ROOM', { roomId }); setIsConnecting(false); })
+      .catch(() => { if (isMounted) { setErrorMessage('로비 서버에 연결할 수 없습니다.'); setIsConnecting(false); } });
 
     return () => {
       isMounted = false;
-      unsubscribers.forEach((unsubscribe) => unsubscribe());
-      if (!isTransitioningToGame) {
-        socket.send('LEAVE_ROOM', { roomId });
-      }
+      unsubs.forEach(u => u());
+      if (!isTransitioningToGame) socket.send('LEAVE_ROOM', { roomId });
       socket.disconnect();
     };
   }, [roomId, navigate]);
@@ -88,60 +61,278 @@ export default function WaitingRoomPage() {
 
   if (isConnecting) {
     return (
-      <div className="auth-container">
-        <h2>Joining Room...</h2>
+      <div style={S.page}>
+        <div style={S.center}>
+          <div style={S.spinner} />
+          <div style={S.spinnerText}>방에 입장 중…</div>
+        </div>
       </div>
     );
   }
 
   if (!room) {
     return (
-      <div className="auth-container">
-        {errorMessage && <div className="alert-error">{errorMessage}</div>}
-        <button className="btn-secondary" onClick={() => navigate('/lobby')}>
-          Back to Lobby
-        </button>
+      <div style={S.page}>
+        <div style={S.center}>
+          {errorMessage && <div style={S.errorBox}>{errorMessage}</div>}
+          <button onClick={() => navigate('/lobby')} style={S.ghostBtn}>← 로비로 돌아가기</button>
+        </div>
       </div>
     );
   }
 
+  const hostChar = characterInfo(room.host.characterId);
+  const guestChar = room.guest ? characterInfo(room.guest.characterId) : null;
+
   return (
-    <div className="dashboard-container">
-      <div className="dashboard-header">
-        <h2>Waiting Room</h2>
-        <button className="btn-secondary" onClick={() => navigate('/lobby')}>
-          Leave Room
-        </button>
-      </div>
-
-      {errorMessage && <div className="alert-error">{errorMessage}</div>}
-
-      <div className="dashboard-grid">
-        <div className="stat-card">
-          <h3>Host</h3>
-          <p>{room.host.nickname}</p>
-          <p>Character: {characterName(room.host.characterId)}</p>
-          <span className="badge-status">{room.host.ready ? 'Ready' : 'Not Ready'}</span>
+    <div style={S.page}>
+      <div style={S.layout}>
+        {/* Header */}
+        <div style={S.header}>
+          <div style={S.logoText}>BATTLE ROOM</div>
+          <button onClick={() => navigate('/lobby')} style={S.leaveBtn}>방 나가기</button>
         </div>
-        <div className="stat-card">
-          <h3>Guest</h3>
+
+        {errorMessage && <div style={S.errorBox}>{errorMessage}</div>}
+
+        {/* Players */}
+        <div style={S.playersRow}>
+          {/* Host */}
+          <div style={{ ...S.playerCard, borderColor: room.host.ready ? '#12c8a8' : 'rgba(255,255,255,.1)' }}>
+            <div style={{ ...S.playerDot, background: hostChar.color }} />
+            <div style={S.playerName}>{room.host.nickname}</div>
+            <div style={{ ...S.playerChar, color: hostChar.color }}>{hostChar.name}</div>
+            <div style={S.roleTag}>HOST</div>
+            <div style={{ ...S.readyBadge, background: room.host.ready ? 'rgba(18,200,168,.15)' : 'rgba(255,255,255,.05)', color: room.host.ready ? '#12c8a8' : '#5c6a8a', borderColor: room.host.ready ? 'rgba(18,200,168,.4)' : 'rgba(255,255,255,.1)' }}>
+              {room.host.ready ? '● READY' : '○ 대기 중'}
+            </div>
+          </div>
+
+          {/* VS */}
+          <div style={S.vsBlock}>
+            <div style={S.vsText}>VS</div>
+            {room.host.ready && room.guest?.ready && (
+              <div style={S.startingText}>게임 시작 중…</div>
+            )}
+          </div>
+
+          {/* Guest */}
           {room.guest ? (
-            <>
-              <p>{room.guest.nickname}</p>
-              <p>Character: {characterName(room.guest.characterId)}</p>
-              <span className="badge-status">{room.guest.ready ? 'Ready' : 'Not Ready'}</span>
-            </>
+            <div style={{ ...S.playerCard, borderColor: room.guest.ready ? '#12c8a8' : 'rgba(255,255,255,.1)' }}>
+              <div style={{ ...S.playerDot, background: guestChar?.color ?? '#5c6a8a' }} />
+              <div style={S.playerName}>{room.guest.nickname}</div>
+              <div style={{ ...S.playerChar, color: guestChar?.color ?? '#5c6a8a' }}>{guestChar?.name}</div>
+              <div style={{ ...S.roleTag, color: '#8a93a8' }}>GUEST</div>
+              <div style={{ ...S.readyBadge, background: room.guest.ready ? 'rgba(18,200,168,.15)' : 'rgba(255,255,255,.05)', color: room.guest.ready ? '#12c8a8' : '#5c6a8a', borderColor: room.guest.ready ? 'rgba(18,200,168,.4)' : 'rgba(255,255,255,.1)' }}>
+                {room.guest.ready ? '● READY' : '○ 대기 중'}
+              </div>
+            </div>
           ) : (
-            <p>Waiting for a guest to join...</p>
+            <div style={{ ...S.playerCard, borderStyle: 'dashed', opacity: 0.5 }}>
+              <div style={S.waitingIcon}>?</div>
+              <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#5c6a8a', marginTop: 8 }}>게스트 대기 중…</div>
+            </div>
           )}
         </div>
-      </div>
 
-      {myPlayer && (
-        <button type="button" className="btn-primary" style={{ marginTop: 24 }} onClick={toggleReady}>
-          {myPlayer.ready ? 'Cancel Ready' : isHost ? 'Ready Up' : 'Ready'}
-        </button>
-      )}
+        {/* Ready button */}
+        {myPlayer && (
+          <div style={{ textAlign: 'center', marginTop: 32 }}>
+            <button onClick={toggleReady} style={{ ...(myPlayer.ready ? S.cancelBtn : S.readyBtn), minWidth: 180 }}>
+              {myPlayer.ready ? '준비 취소' : isHost ? '준비 완료' : '준비 완료'}
+            </button>
+            {isHost && !room.guest && (
+              <div style={{ marginTop: 12, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#5c6a8a' }}>
+                게스트가 입장할 때까지 기다려주세요
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
+
+const S = {
+  page: {
+    minHeight: '100vh',
+    background: 'radial-gradient(ellipse 1000px 600px at 50% -5%, #0e1a24 0%, #05070c 60%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontFamily: "'Inter',sans-serif",
+    padding: 20,
+  },
+  layout: {
+    width: '100%',
+    maxWidth: 680,
+  },
+  center: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    gap: 16,
+  },
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  logoText: {
+    fontFamily: "'Rajdhani',sans-serif",
+    fontWeight: 700 as const,
+    fontSize: 18,
+    letterSpacing: '.2em',
+    color: '#12c8a8',
+  },
+  leaveBtn: {
+    padding: '6px 14px',
+    borderRadius: 7,
+    border: '1px solid rgba(239,74,99,.35)',
+    background: 'rgba(239,74,99,.06)',
+    color: '#ef4a63',
+    fontFamily: "'JetBrains Mono',monospace",
+    fontSize: 10.5,
+    cursor: 'pointer',
+  },
+  errorBox: {
+    background: 'rgba(239,74,99,.1)',
+    border: '1px solid rgba(239,74,99,.3)',
+    borderRadius: 10,
+    padding: '10px 14px',
+    color: '#ef4a63',
+    fontFamily: "'JetBrains Mono',monospace",
+    fontSize: 12,
+    marginBottom: 16,
+  },
+  playersRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 20,
+  },
+  playerCard: {
+    flex: 1,
+    background: '#0d1220',
+    border: '1px solid',
+    borderRadius: 16,
+    padding: '28px 24px',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    gap: 8,
+    transition: 'border-color .3s',
+  },
+  playerDot: {
+    width: 48,
+    height: 48,
+    borderRadius: '50%',
+    marginBottom: 4,
+  },
+  playerName: {
+    fontFamily: "'Rajdhani',sans-serif",
+    fontWeight: 700 as const,
+    fontSize: 18,
+    color: '#e2e8f5',
+  },
+  playerChar: {
+    fontFamily: "'JetBrains Mono',monospace",
+    fontSize: 11,
+    letterSpacing: '.1em',
+  },
+  roleTag: {
+    fontFamily: "'JetBrains Mono',monospace",
+    fontSize: 9,
+    letterSpacing: '.15em',
+    color: '#12c8a8',
+    marginTop: 2,
+  },
+  readyBadge: {
+    marginTop: 8,
+    padding: '4px 12px',
+    borderRadius: 20,
+    border: '1px solid',
+    fontFamily: "'JetBrains Mono',monospace",
+    fontWeight: 700 as const,
+    fontSize: 10,
+    letterSpacing: '.08em',
+    transition: 'all .3s',
+  },
+  vsBlock: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    gap: 6,
+    flex: 'none' as const,
+  },
+  vsText: {
+    fontFamily: "'Rajdhani',sans-serif",
+    fontWeight: 700 as const,
+    fontSize: 28,
+    color: '#2a3246',
+  },
+  startingText: {
+    fontFamily: "'JetBrains Mono',monospace",
+    fontSize: 10,
+    color: '#12c8a8',
+  },
+  waitingIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: '50%',
+    background: 'rgba(255,255,255,.04)',
+    border: '1px dashed rgba(255,255,255,.15)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#3a4256',
+    fontSize: 20,
+    marginBottom: 4,
+  },
+  readyBtn: {
+    padding: '12px 32px',
+    borderRadius: 10,
+    border: '1px solid rgba(18,200,168,.5)',
+    background: 'rgba(18,200,168,.12)',
+    color: '#12c8a8',
+    fontFamily: "'Rajdhani',sans-serif",
+    fontWeight: 700 as const,
+    fontSize: 16,
+    cursor: 'pointer',
+    letterSpacing: '.05em',
+  },
+  cancelBtn: {
+    padding: '12px 32px',
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,.15)',
+    background: 'transparent',
+    color: '#8a93a8',
+    fontFamily: "'Rajdhani',sans-serif",
+    fontWeight: 700 as const,
+    fontSize: 16,
+    cursor: 'pointer',
+  },
+  ghostBtn: {
+    padding: '9px 18px',
+    borderRadius: 8,
+    border: '1px solid rgba(255,255,255,.14)',
+    background: 'transparent',
+    color: '#8a93a8',
+    fontFamily: "'JetBrains Mono',monospace",
+    fontSize: 11,
+    cursor: 'pointer',
+  },
+  spinner: {
+    width: 36,
+    height: 36,
+    borderRadius: '50%',
+    border: '3px solid rgba(18,200,168,.2)',
+    borderTopColor: '#12c8a8',
+    animation: 'spin 0.8s linear infinite',
+  },
+  spinnerText: {
+    fontFamily: "'JetBrains Mono',monospace",
+    fontSize: 12,
+    color: '#5c6a8a',
+  },
+} as const;

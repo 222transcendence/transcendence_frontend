@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
-import { fetchChatHistory, fetchLeaderboard } from '../api/gameStats';
+import { fetchLeaderboard } from '../api/gameStats';
+import { fetchChatHistory } from '../api/client';
 import type { LeaderboardEntry } from '../types/gameStats';
 import type { ChatMessage } from '../types/chat';
 import { LobbySocket } from '../api/lobbySocket';

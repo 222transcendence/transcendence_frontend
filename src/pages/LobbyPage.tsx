@@ -407,7 +407,7 @@ function GlobalChatPanel({ currentUserId }: { currentUserId: string }) {
     const socket = io('/chat', { path: '/socketio', auth: { token: `Bearer ${token}` } });
     socketRef.current = socket;
     socket.on('connect', async () => {
-      try { const h = await fetchChatHistory(); setMessages(h.filter(m => !m.roomId)); } catch { /* ok */ }
+      try { const h = await fetchChatHistory(); setMessages(h.filter((m: ChatMessage) => !m.roomId)); } catch { /* ok */ }
     });
     socket.on('receive_message', (msg: ChatMessage) => { if (!msg.roomId) setMessages(prev => [...prev, msg]); });
     socket.on('connect_error', () => socket.disconnect());

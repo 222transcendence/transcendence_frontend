@@ -5,8 +5,8 @@ import { fetchMyProfile } from '../api/client';
 import type { Room } from '../types/lobby';
 import { CHARACTERS } from '../data/characters';
 
-function characterName(characterId: string): string {
-  return CHARACTERS.find((c) => c.id === characterId)?.name ?? characterId;
+function characterName(characterId: number): string {
+  return CHARACTERS.find((c) => c.id === characterId)?.name ?? String(characterId);
 }
 
 export default function WaitingRoomPage() {

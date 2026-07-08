@@ -42,7 +42,6 @@ export default function GameBoardPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
 
-  const [myUserId, setMyUserId] = useState('');
   const [myNickname, setMyNickname] = useState('');
   const [isHost, setIsHost] = useState(false);
   const [opponentNickname, setOpponentNickname] = useState('');

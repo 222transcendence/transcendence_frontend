@@ -21,15 +21,8 @@ function App() {
     <GameSocketProvider>
     <BrowserRouter>
       <Routes>
-        {/* Protected Home Route */}
-        <Route
-          path="/"
-          element={
-            <PrivateRoute>
-              <HomePage />
-            </PrivateRoute>
-          }
-        />
+        {/* Home → Lobby */}
+        <Route path="/" element={<PrivateRoute><Navigate to="/lobby" replace /></PrivateRoute>} />
 
         {/* Protected Profile Routes */}
         <Route

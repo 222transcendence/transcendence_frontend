@@ -314,7 +314,7 @@ function FriendsTab({ friends, pendingRequests, addNickname, addMsg, onAddNickna
             {friends.map(f => (
               <div key={f.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <button onClick={() => onFriendClick(f)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                  <div style={{ ...S.friendAvatar, backgroundImage: f.avatar ? `url(${(f as any).avatar})` : 'none' }} />
+                  <div style={{ ...S.friendAvatar, backgroundImage: f.avatar ? `url(${f.avatar})` : 'none' }} />
                   <span style={{ fontSize: 8, color: f.status === 'ONLINE' ? '#12c8a8' : f.status === 'IN_GAME' ? '#eab308' : '#5c6a8a' }}>●</span>
                   <span style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, color: '#c7cede' }}>{f.nickname}</span>
                   <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: '#5c6a8a' }}>{f.status}</span>

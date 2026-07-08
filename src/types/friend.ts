@@ -13,4 +13,5 @@ export interface Friend {
   id: string;
   nickname: string;
   status: UserStatus;
+  avatar?: string;
 }

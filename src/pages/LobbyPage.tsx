@@ -359,7 +359,7 @@ function StatsTab({ stats, userId }: { stats: Stats | null; userId: string }) {
 
 function SettingsTab({ nicknameInput, settingsMsg, myAvatar, isUploadingAvatar, avatarFileRef, onNicknameChange, onSaveNickname, onAvatarSelect }: {
   nicknameInput: string; settingsMsg: string; myAvatar: string; isUploadingAvatar: boolean;
-  avatarFileRef: React.RefObject<HTMLInputElement>;
+  avatarFileRef: React.RefObject<HTMLInputElement | null>;
   onNicknameChange: (v: string) => void; onSaveNickname: () => void;
   onAvatarSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {

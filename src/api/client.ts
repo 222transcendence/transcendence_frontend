@@ -92,6 +92,15 @@ export async function updateMyProfile(nickname: string): Promise<UserProfile> {
   return parseEnvelope<UserProfile>(response);
 }
 
+export async function deleteMyAvatar(): Promise<UserProfile> {
+  const response = await authorizedFetch('/api/users/me', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ avatar: null }),
+  });
+  return parseEnvelope<UserProfile>(response);
+}
+
 export async function uploadMyAvatar(file: File): Promise<UserProfile> {
   const formData = new FormData();
   formData.append('avatar', file);
@@ -151,4 +160,16 @@ export async function respondFriendRequest(
 export async function fetchChatHistory(): Promise<ChatMessage[]> {
   const response = await authorizedFetch('/api/chat/history');
   return parseEnvelope<ChatMessage[]>(response);
+}
+
+export interface CardInfo {
+  id: number;
+  type: 'MOVE' | 'ATK_SWORD' | 'ATK_GUN' | 'DEF' | 'SPECIAL';
+  valueTop: number;
+  valueBottom: number;
+}
+
+export async function fetchAllCards(): Promise<CardInfo[]> {
+  const response = await authorizedFetch('/api/game/cards');
+  return parseEnvelope<CardInfo[]>(response);
 }

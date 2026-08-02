@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
-import HomePage from './pages/HomePage';
 import ProfilePage from './pages/ProfilePage';
 import LobbyPage from './pages/LobbyPage';
 import WaitingRoomPage from './pages/WaitingRoomPage';
@@ -13,6 +12,7 @@ import StatsPage from './pages/StatsPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import GameBoardPage from './pages/GameBoardPage';
 import PrivateRoute from './components/PrivateRoute';
+import InviteNotification from './components/InviteNotification';
 import { GameSocketProvider } from './context/GameSocketContext';
 import './App.css';
 
@@ -21,15 +21,8 @@ function App() {
     <GameSocketProvider>
     <BrowserRouter>
       <Routes>
-        {/* Protected Home Route */}
-        <Route
-          path="/"
-          element={
-            <PrivateRoute>
-              <HomePage />
-            </PrivateRoute>
-          }
-        />
+        {/* Home → Lobby */}
+        <Route path="/" element={<PrivateRoute><Navigate to="/lobby" replace /></PrivateRoute>} />
 
         {/* Protected Profile Routes */}
         <Route
@@ -100,6 +93,7 @@ function App() {
         {/* Fallback to Home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <InviteNotification />
     </BrowserRouter>
     </GameSocketProvider>
   );

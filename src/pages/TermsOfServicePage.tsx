@@ -6,7 +6,7 @@ const TermsOfServicePage: React.FC = () => (
     <div className="static-page-card">
       <Link to="/" className="static-page-back">← 홈으로</Link>
       <h1>이용약관</h1>
-      <p className="static-page-updated">최종 수정일: 2026년 6월 29일</p>
+      <p className="static-page-updated">최종 수정일: 2026년 8월 2일</p>
 
       <section>
         <h2>제1조 (목적)</h2>
@@ -15,12 +15,13 @@ const TermsOfServicePage: React.FC = () => (
 
       <section>
         <h2>제2조 (서비스 소개)</h2>
-        <p>서비스는 42Seoul 교육과정의 ft_transcendence 과제로 개발된 웹 기반 TCG(트레이딩 카드 게임) 플랫폼입니다. 이용자는 캐릭터를 선택하고 상대방과 1대1 카드 배틀을 즐길 수 있습니다.</p>
+        <p>서비스는 42Seoul 교육과정의 ft_transcendence 과제로 개발된 웹 기반 실시간 타자 대전 게임 플랫폼입니다. 이용자는 상대방과 1대1 산성비(Acid Rain) 타자 대결을 즐길 수 있습니다.</p>
         <ul>
           <li>게임 로비 및 방 생성·입장</li>
-          <li>턴제 TCG 배틀 (페이즈: MOVE → ATTACK → DEFENSE → RESULT)</li>
-          <li>전적 기록 및 친구 관리</li>
-          <li>글로벌 채팅</li>
+          <li>실시간 산성비 타자 대전 (낙하하는 단어를 먼저 입력해 상대 HP를 감소)</li>
+          <li>전적 기록 및 리더보드</li>
+          <li>친구 관리 및 친구 초대</li>
+          <li>글로벌 채팅 및 1:1 채팅</li>
         </ul>
       </section>
 

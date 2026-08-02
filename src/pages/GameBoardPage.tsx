@@ -1,324 +1,656 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchMyProfile } from '../api/client';
-import { useGameSocket } from '../hooks/useGameSocket';
-import PhaseBanner from '../components/game/PhaseBanner';
-import HandArea from '../components/game/HandArea';
-import DamageFloatingNumber from '../components/game/DamageFloatingNumber';
-import SkillEffectOverlay from '../components/game/SkillEffectOverlay';
-import GameEndModal from '../components/game/GameEndModal';
-import type { GamePhase } from '../types/game';
-import type { GameStartPayload, PhaseUpdatePayload } from '../types/gameSocket';
-import type { DamagePopup, SkillEffectTrigger, MatchSummary } from '../types/gameAnimation';
+import ChatPanel from '../components/ChatPanel';
+import { useAcidRainSocket } from '../hooks/useAcidRainSocket';
+import type { FallingWord, MatchEndData, GamePhase } from '../types/acidRain';
 
-const TIMER_SECONDS = 30;
+const MAX_HP = 100;
+const MATCH_DURATION = 180;
 
-interface BoardState {
-  phase: GamePhase;
-  distance: number;
-  currentTurn: number;
-  initiative: 'host' | 'guest' | null;
-  myHp: number;
-  opponentHp: number;
-  myCardsInHand: number[];
-  opponentCardCount: number;
-  myStatusEffects: { type: string; duration: number }[];
-  opponentStatusEffects: { type: string; duration: number }[];
-  winnerId: string | null;
+// ── Word falling animation injected once ─────────────────────────────────────
+const styleId = 'acid-rain-keyframes';
+if (!document.getElementById(styleId)) {
+  const style = document.createElement('style');
+  style.id = styleId;
+  style.textContent = `
+    @keyframes fall { from { transform: translateY(-60px); } to { transform: translateY(calc(100vh - 40px)); } }
+    @keyframes flash-green { 0%,100% { background: transparent; } 50% { background: rgba(18,200,168,.18); } }
+    @keyframes flash-red   { 0%,100% { background: transparent; } 50% { background: rgba(239,74,99,.18); } }
+    @keyframes pop-out { 0% { opacity:1; transform:scale(1); } 100% { opacity:0; transform:scale(1.6); } }
+    .word-chip { animation: fall linear forwards; position: absolute; cursor: default; user-select: none; }
+    .word-chip.matched { animation: pop-out .25s ease forwards !important; }
+  `;
+  document.head.appendChild(style);
+}
+
+// ── Tier color ────────────────────────────────────────────────────────────────
+const tierColor = { easy: '#12c8a8', medium: '#eab308', hard: '#ef4a63' };
+
+// ── HP bar color based on remaining % ────────────────────────────────────────
+function hpColor(pct: number) {
+  if (pct > 60) return '#12c8a8';
+  if (pct > 30) return '#eab308';
+  return '#ef4a63';
+}
+
+// ── Format seconds → mm:ss ────────────────────────────────────────────────────
+function fmtTime(sec: number) {
+  const m = Math.floor(sec / 60).toString().padStart(2, '0');
+  const s = (sec % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
 }
 
 export default function GameBoardPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
 
-  const [myUserId, setMyUserId] = useState('');
+  // ── Identity ─────────────────────────────────────────────────────────────
   const [myNickname, setMyNickname] = useState('');
-  const [isHost, setIsHost] = useState(false);
   const [opponentNickname, setOpponentNickname] = useState('');
-  const [boardState, setBoardState] = useState<BoardState | null>(null);
-  const [selectedCardIds, setSelectedCardIds] = useState<number[]>([]);
-  const [waitingForOpponent, setWaitingForOpponent] = useState(false);
-  const [disconnectMsg, setDisconnectMsg] = useState('');
-  const [damagePopups, setDamagePopups] = useState<DamagePopup[]>([]);
-  const [skillTriggers, setSkillTriggers] = useState<SkillEffectTrigger[]>([]);
-  const [endModalData, setEndModalData] = useState<{ summary: MatchSummary; isWinner: boolean } | null>(null);
-  const [timer, setTimer] = useState(TIMER_SECONDS);
+  void setOpponentNickname;
+  const myUserIdRef   = useRef('');
+  const isHostRef     = useRef(false);
+
+  // ── Game state ────────────────────────────────────────────────────────────
+  const [phase, setPhase]         = useState<GamePhase>('WAITING');
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [myHp, setMyHp]           = useState(MAX_HP);
+  const [oppHp, setOppHp]         = useState(MAX_HP);
+  const [elapsed, setElapsed]     = useState(0);
+  const [words, setWords]         = useState<FallingWord[]>([]);
+  const [matchedIds, setMatchedIds] = useState<Set<string>>(new Set());
+  const [endData, setEndData]     = useState<(MatchEndData & { isWinner: boolean }) | null>(null);
+  const [disconnectGrace, setDisconnectGrace] = useState<number | null>(null);
+  const [leaveConfirm, setLeaveConfirm] = useState(false);
+  const [flashMy, setFlashMy]     = useState<'hit' | null>(null);
+  const [flashOpp, setFlashOpp]   = useState<'hit' | null>(null);
+
+  // ── Input ─────────────────────────────────────────────────────────────────
+  const [input, setInput]     = useState('');
+  const inputRef              = useRef<HTMLInputElement>(null);
+  const wordsRef              = useRef<FallingWord[]>([]);
+  wordsRef.current = words;
+
+  // ── Timer ─────────────────────────────────────────────────────────────────
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const hostNicknameRef = useRef('');
-  const guestNicknameRef = useRef('');
 
-  useEffect(() => {
-    fetchMyProfile()
-      .then((profile) => {
-        setMyUserId(profile.id);
-        setMyNickname(profile.nickname);
-      })
-      .catch(() => navigate('/login', { replace: true }));
-  }, [navigate]);
-
-  const resetTimer = useCallback(() => {
+  const startTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
-    setTimer(TIMER_SECONDS);
     timerRef.current = setInterval(() => {
-      setTimer((t) => {
-        if (t <= 1) {
-          if (timerRef.current) clearInterval(timerRef.current);
-          return 0;
-        }
-        return t - 1;
-      });
+      setElapsed(e => Math.min(e + 1, MATCH_DURATION));
     }, 1000);
   }, []);
 
+  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
+
+  // ── Profile fetch ─────────────────────────────────────────────────────────
   useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
+    fetchMyProfile()
+      .then(p => { myUserIdRef.current = p.id; setMyNickname(p.nickname); })
+      .catch(() => navigate('/login', { replace: true }));
+  }, [navigate]);
+
+  // ── Flash helpers ─────────────────────────────────────────────────────────
+  const flashHit = useCallback((target: 'my' | 'opp') => {
+    if (target === 'my') {
+      setFlashMy('hit');
+      setTimeout(() => setFlashMy(null), 400);
+    } else {
+      setFlashOpp('hit');
+      setTimeout(() => setFlashOpp(null), 400);
+    }
   }, []);
 
-  const handleGameStart = useCallback(
-    (payload: GameStartPayload) => {
-      if (!myUserId) return;
-      const amHost = payload.host.userId === myUserId;
-      setIsHost(amHost);
-      hostNicknameRef.current = payload.host.nickname;
-      guestNicknameRef.current = payload.guest?.nickname ?? '';
-      setOpponentNickname(amHost ? (payload.guest?.nickname ?? '?') : payload.host.nickname);
-      setBoardState({
-        phase: payload.phase,
-        distance: payload.distance,
-        currentTurn: payload.currentTurn,
-        initiative: null,
-        myHp: amHost ? payload.host.hp : (payload.guest?.hp ?? 0),
-        opponentHp: amHost ? (payload.guest?.hp ?? 0) : payload.host.hp,
-        myCardsInHand: amHost ? payload.host.cardsInHand : (payload.guest?.cardsInHand ?? []),
-        opponentCardCount: amHost ? (payload.guest?.cardsInHand.length ?? 0) : payload.host.cardsInHand.length,
-        myStatusEffects: [],
-        opponentStatusEffects: [],
-        winnerId: null,
-      });
-      setSelectedCardIds([]);
-      setWaitingForOpponent(false);
-      resetTimer();
-    },
-    [myUserId, resetTimer],
-  );
+  // ── Socket handlers ───────────────────────────────────────────────────────
+  const handleMatchStart = useCallback((hostUserId: string, guestUserId: string) => {
+    void guestUserId;
+    isHostRef.current = hostUserId === myUserIdRef.current;
+    setPhase('IN_PROGRESS');
+    setMyHp(MAX_HP); setOppHp(MAX_HP);
+    setWords([]); setElapsed(0);
+    startTimer();
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, [startTimer]);
 
-  const handlePhaseUpdate = useCallback(
-    (payload: PhaseUpdatePayload) => {
-      const amHost = isHost;
-      setBoardState({
-        phase: payload.currentPhase ?? 'RESULT',
-        distance: payload.distance,
-        currentTurn: payload.currentTurn,
-        initiative: payload.initiative,
-        myHp: amHost ? payload.hostHp : payload.guestHp,
-        opponentHp: amHost ? payload.guestHp : payload.hostHp,
-        myCardsInHand: amHost ? payload.hostCardsInHand : payload.guestCardsInHand,
-        opponentCardCount: (amHost ? payload.guestCardsInHand : payload.hostCardsInHand).length,
-        myStatusEffects: amHost ? payload.statusEffects.host : payload.statusEffects.guest,
-        opponentStatusEffects: amHost ? payload.statusEffects.guest : payload.statusEffects.host,
-        winnerId: payload.winnerId,
-      });
-      setSelectedCardIds([]);
-      setWaitingForOpponent(false);
-      resetTimer();
-
-      // spawn damage/skill animations from action log
-      if (payload.skillsTriggered.length > 0) {
-        const newTriggers: SkillEffectTrigger[] = payload.skillsTriggered.map((label, i) => ({
-          id: `skill-${Date.now()}-${i}`,
-          source: 'host',
-          label,
-        }));
-        setSkillTriggers((prev) => [...prev, ...newTriggers]);
-      }
-
-      if (payload.winnerId) {
-        const isWinner = payload.winnerId === myUserId;
-        const winnerNickname =
-          payload.winnerId === (amHost ? myUserId : '') ? myNickname : opponentNickname;
-        setEndModalData({
-          summary: {
-            winnerNickname,
-            loserNickname: winnerNickname === myNickname ? opponentNickname : myNickname,
-            turnsPlayed: payload.currentTurn,
-            finalHostHp: payload.hostHp,
-            finalGuestHp: payload.guestHp,
-          },
-          isWinner,
-        });
-        if (timerRef.current) clearInterval(timerRef.current);
-      }
-    },
-    [isHost, myUserId, myNickname, opponentNickname, resetTimer],
-  );
-
-  const handleCardsAccepted = useCallback(() => {
-    setWaitingForOpponent(true);
+  const handleCountdown = useCallback((sec: number) => {
+    setPhase('COUNTDOWN');
+    setCountdown(sec);
   }, []);
 
-  const handlePlayerLeft = useCallback((_userId: string, nickname: string) => {
-    setDisconnectMsg(`${nickname} has disconnected.`);
+  const handleWordSpawn = useCallback((word: FallingWord) => {
+    setWords(prev => [...prev, word]);
   }, []);
 
-  const { connectionState, submitCards } = useGameSocket(roomId ?? '', {
-    onGameStart: handleGameStart,
-    onPhaseUpdate: handlePhaseUpdate,
-    onCardsAccepted: handleCardsAccepted,
-    onPlayerLeft: handlePlayerLeft,
+  const handleWordCleared = useCallback((wordId: string, byUserId: string, damage: number) => {
+    setMatchedIds(prev => new Set([...prev, wordId]));
+    setTimeout(() => {
+      setWords(prev => prev.filter(w => w.wordId !== wordId));
+      setMatchedIds(prev => { const n = new Set(prev); n.delete(wordId); return n; });
+    }, 300);
+    void damage;
+    if (byUserId !== myUserIdRef.current) {
+      flashHit('my');
+    } else {
+      flashHit('opp');
+    }
+  }, [flashHit]);
+
+  const handleWordMissed = useCallback((wordId: string) => {
+    setWords(prev => prev.filter(w => w.wordId !== wordId));
+    flashHit('my');
+    flashHit('opp');
+  }, [flashHit]);
+
+  const handleHpUpdate = useCallback((hostHp: number, guestHp: number) => {
+    if (isHostRef.current) { setMyHp(hostHp); setOppHp(guestHp); }
+    else                   { setMyHp(guestHp); setOppHp(hostHp); }
+  }, []);
+
+  const handleMatchEnd = useCallback((data: MatchEndData) => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setPhase('FINISHED');
+    setWords([]);
+    const isWinner = data.winnerId === myUserIdRef.current;
+    setEndData({ ...data, isWinner });
+  }, []);
+
+  const handleOpponentDisconnected = useCallback((graceMs: number) => {
+    setDisconnectGrace(Math.ceil(graceMs / 1000));
+  }, []);
+
+  const handleStateSync = useCallback((data: {
+    elapsedSec: number; hostHp: number; guestHp: number;
+    activeWords: Array<{ wordId: string; text: string; tier: 'easy' | 'medium' | 'hard'; remainingMs: number }>;
+  }) => {
+    setElapsed(data.elapsedSec);
+    handleHpUpdate(data.hostHp, data.guestHp);
+    const restored: FallingWord[] = data.activeWords.map(w => ({
+      wordId: w.wordId, text: w.text, tier: w.tier,
+      x: Math.random() * 82,
+      fallDurationMs: w.remainingMs,
+      spawnedAt: Date.now(),
+    }));
+    setWords(restored);
+    setPhase('IN_PROGRESS');
+    startTimer();
+  }, [handleHpUpdate, startTimer]);
+
+  const { connectionState, submitWord } = useAcidRainSocket(roomId ?? '', {
+    onMatchStart: handleMatchStart,
+    onCountdown: handleCountdown,
+    onWordSpawn: handleWordSpawn,
+    onWordCleared: handleWordCleared,
+    onWordMissed: handleWordMissed,
+    onHpUpdate: handleHpUpdate,
+    onMatchEnd: handleMatchEnd,
+    onOpponentDisconnected: handleOpponentDisconnected,
+    onStateSync: handleStateSync,
   });
 
-  const toggleCard = useCallback((cardId: number) => {
-    setSelectedCardIds((prev) =>
-      prev.includes(cardId) ? prev.filter((id) => id !== cardId) : [...prev, cardId],
-    );
-  }, []);
+  // ── Input submit: find matching word ─────────────────────────────────────
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setInput(val);
+    const match = wordsRef.current.find(w => w.text === val && !matchedIds.has(w.wordId));
+    if (match) {
+      setInput('');
+      submitWord(match.wordId, match.text);
+    }
+  }, [matchedIds, submitWord]);
 
-  const handleSubmit = useCallback(() => {
-    if (selectedCardIds.length === 0) return;
-    submitCards(selectedCardIds);
-  }, [selectedCardIds, submitCards]);
+  // ── Derived ───────────────────────────────────────────────────────────────
+  const myHpPct  = Math.max(0, (myHp  / MAX_HP) * 100);
+  const oppHpPct = Math.max(0, (oppHp / MAX_HP) * 100);
+  const remaining = Math.max(0, MATCH_DURATION - elapsed);
 
-  if (!boardState) {
+  // ── End modal ─────────────────────────────────────────────────────────────
+  if (endData) {
+    const myWords  = isHostRef.current ? endData.wordsTyped.host : endData.wordsTyped.guest;
+    const oppWords = isHostRef.current ? endData.wordsTyped.guest : endData.wordsTyped.host;
     return (
-      <div className="game-board-loading">
-        <p>
-          {connectionState === 'connecting' && 'Connecting to game...'}
-          {connectionState === 'connected' && 'Waiting for game to start...'}
-          {connectionState === 'error' && 'Connection failed. Please refresh.'}
-          {connectionState === 'disconnected' && 'Disconnected.'}
-        </p>
+      <div style={S.page}>
+        <div style={S.endOverlay}>
+          <div style={S.endCard}>
+            <div style={{ ...S.endResult, color: endData.isWinner ? '#12c8a8' : '#ef4a63' }}>
+              {endData.isWinner ? '🏆 승리' : '💀 패배'}
+            </div>
+            <div style={S.endReason}>
+              {endData.reason === 'KO' && 'KO 승리'}
+              {endData.reason === 'TIME_LIMIT' && '시간 종료'}
+              {endData.reason === 'FORFEIT' && '상대방 기권'}
+            </div>
+            <div style={S.endStats}>
+              <div style={S.endStatRow}>
+                <span style={S.endStatLabel}>최종 HP</span>
+                <span style={{ color: '#12c8a8' }}>{myHp}</span>
+                <span style={S.endStatSep}>vs</span>
+                <span style={{ color: '#ef4a63' }}>{oppHp}</span>
+              </div>
+              <div style={S.endStatRow}>
+                <span style={S.endStatLabel}>입력한 단어</span>
+                <span style={{ color: '#12c8a8' }}>{myWords}</span>
+                <span style={S.endStatSep}>vs</span>
+                <span style={{ color: '#ef4a63' }}>{oppWords}</span>
+              </div>
+              <div style={S.endStatRow}>
+                <span style={S.endStatLabel}>게임 시간</span>
+                <span style={{ color: '#e2e8f5' }}>{fmtTime(endData.durationSec)}</span>
+              </div>
+            </div>
+            <div style={S.endActions}>
+              <button style={S.primaryBtn} onClick={() => navigate('/lobby')}>로비로 돌아가기</button>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
-  const PHASE_LABEL: Record<GamePhase, string> = {
-    DRAW: 'Draw', MOVE: 'Move', ATTACK: 'Attack', DEFENSE: 'Defense', RESULT: 'Result',
-  };
-
   return (
-    <div className="game-board">
-      {/* Left sidebar: turn + timer */}
-      <aside className="game-board-sidebar">
-        <div className="game-sidebar-item">
-          <span className="game-sidebar-label">Turn</span>
-          <span className="game-sidebar-value">{boardState.currentTurn}</span>
-        </div>
-        <div className={`game-sidebar-item ${timer <= 10 ? 'timer-urgent' : ''}`}>
-          <span className="game-sidebar-label">Timer</span>
-          <span className="game-sidebar-value">{timer}s</span>
-        </div>
-        <div className="game-sidebar-item">
-          <span className="game-sidebar-label">You</span>
-          <span className="game-sidebar-value" style={{ fontSize: 12 }}>{myNickname}</span>
-        </div>
-      </aside>
+    <div style={S.page}>
+      <div style={S.outerLayout}>
 
-      <div className="game-board-main">
-        {/* Top: opponent info */}
-        <div className="game-board-opponent">
-          <div className="game-board-player-info">
-            <span className="player-name">{opponentNickname}</span>
-            <div className="status-effects">
-              {boardState.opponentStatusEffects.map((se, i) => (
-                <span key={i} className="status-badge">{se.type} ×{se.duration}</span>
-              ))}
+        {/* ── Main game area ── */}
+        <div style={S.gameCol}>
+
+          {/* Top bar */}
+          <div style={S.topBar}>
+            {leaveConfirm ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={S.leaveText}>나가면 패배 처리됩니다</span>
+                <button style={S.dangerSm} onClick={() => navigate('/lobby')}>확인</button>
+                <button style={S.ghostSm}  onClick={() => setLeaveConfirm(false)}>취소</button>
+              </div>
+            ) : (
+              <button style={S.dangerSm} onClick={() => setLeaveConfirm(true)}>⎋ 나가기</button>
+            )}
+            <div style={S.timerBox}>
+              <span style={{ ...S.timerText, color: remaining <= 30 ? '#ef4a63' : '#e2e8f5' }}>
+                {fmtTime(remaining)}
+              </span>
+            </div>
+            <div style={{ width: 80 }} />
+          </div>
+
+          {/* Opponent HP */}
+          <div style={{ ...S.hpZone, background: flashOpp === 'hit' ? 'rgba(239,74,99,.1)' : 'transparent', transition: 'background .15s' }}>
+            <div style={S.playerRow}>
+              <div style={{ ...S.avatar, borderColor: '#ef4a63' }} />
+              <div style={{ flex: 1 }}>
+                <div style={S.nickname}>{opponentNickname || '상대방'}</div>
+                <div style={S.hpRow}>
+                  <span style={S.hpLabel}>HP</span>
+                  <div style={S.hpTrack}>
+                    <div style={{ ...S.hpFill, width: `${oppHpPct}%`, background: hpColor(oppHpPct) }} />
+                  </div>
+                  <span style={S.hpNum}>{oppHp} / {MAX_HP}</span>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="hp-bar-container">
-            <span className="hp-label">HP</span>
-            <div className="hp-bar-bg">
-              <div className="hp-bar-fill" style={{ width: `${Math.min(100, boardState.opponentHp)}%` }} />
-            </div>
-            <span className="hp-value">{boardState.opponentHp}</span>
-          </div>
-          <span className="card-count-badge">{boardState.opponentCardCount} cards</span>
-        </div>
 
-        {/* Center: distance, phase, initiative */}
-        <div className="game-board-center">
-          <PhaseBanner phase={boardState.phase} />
-          <div className="game-center-stats">
-            <div className="game-center-stat">
-              <span className="game-center-stat-label">Distance</span>
-              <span className="game-center-stat-value glow-cyan">{boardState.distance}</span>
-            </div>
-            <div className="game-center-stat">
-              <span className="game-center-stat-label">Phase</span>
-              <span className="game-center-stat-value">{PHASE_LABEL[boardState.phase]}</span>
-            </div>
-            {boardState.initiative && (
-              <div className="game-center-stat">
-                <span className="game-center-stat-label">Initiative</span>
-                <span className="game-center-stat-value glow-cyan">
-                  {boardState.initiative === 'host'
-                    ? hostNicknameRef.current
-                    : guestNicknameRef.current}
-                </span>
+          {/* Rain area */}
+          <div style={S.rainArea}>
+            {/* Waiting / countdown overlay */}
+            {phase === 'WAITING' && (
+              <div style={S.rainOverlay}>
+                <div style={S.waitText}>
+                  {connectionState === 'connecting' ? '연결 중…' : '상대방 대기 중…'}
+                </div>
+              </div>
+            )}
+            {phase === 'COUNTDOWN' && countdown !== null && (
+              <div style={{ ...S.rainOverlay, flexDirection: 'column' }}>
+                <div style={S.countdownNum}>{countdown}</div>
+                <div style={S.countdownLabel}>준비하세요!</div>
+              </div>
+            )}
+
+            {/* Falling words */}
+            {words.map(word => (
+              <div
+                key={word.wordId}
+                className={`word-chip${matchedIds.has(word.wordId) ? ' matched' : ''}`}
+                style={{
+                  left: `${word.x}%`,
+                  animationDuration: `${word.fallDurationMs}ms`,
+                  animationDelay: '0ms',
+                  padding: '5px 13px',
+                  borderRadius: 8,
+                  border: `1px solid ${tierColor[word.tier]}55`,
+                  background: `${tierColor[word.tier]}14`,
+                  color: tierColor[word.tier],
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontWeight: 700,
+                  fontSize: 17,
+                  whiteSpace: 'nowrap',
+                  boxShadow: `0 0 12px ${tierColor[word.tier]}44`,
+                  letterSpacing: '.04em',
+                  opacity: 1,
+                } as React.CSSProperties}
+              >
+                {input && word.text.startsWith(input)
+                  ? <><span style={{ color: '#fff', textDecoration: 'underline' }}>{input}</span>{word.text.slice(input.length)}</>
+                  : word.text
+                }
+              </div>
+            ))}
+
+            {/* Disconnect notice */}
+            {disconnectGrace !== null && (
+              <div style={S.disconnectBanner}>
+                상대방이 연결이 끊겼습니다. {disconnectGrace}초 내 재접속하지 않으면 승리 처리됩니다.
               </div>
             )}
           </div>
+
+          {/* My HP + input */}
+          <div style={{ ...S.hpZone, background: flashMy === 'hit' ? 'rgba(239,74,99,.1)' : 'transparent', transition: 'background .15s' }}>
+            <div style={S.playerRow}>
+              <div style={{ ...S.avatar, borderColor: '#12c8a8' }} />
+              <div style={{ flex: 1 }}>
+                <div style={S.nickname}>{myNickname || '나'}</div>
+                <div style={S.hpRow}>
+                  <span style={S.hpLabel}>HP</span>
+                  <div style={S.hpTrack}>
+                    <div style={{ ...S.hpFill, width: `${myHpPct}%`, background: hpColor(myHpPct) }} />
+                  </div>
+                  <span style={S.hpNum}>{myHp} / {MAX_HP}</span>
+                </div>
+              </div>
+            </div>
+
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={handleInputChange}
+              disabled={phase !== 'IN_PROGRESS'}
+              placeholder={phase === 'IN_PROGRESS' ? '단어를 입력하세요…' : ''}
+              style={S.inputField}
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+          </div>
         </div>
 
-        {/* My info */}
-        <div className="game-board-me">
-          <div className="hp-bar-container">
-            <span className="hp-label">HP</span>
-            <div className="hp-bar-bg">
-              <div className="hp-bar-fill" style={{ width: `${Math.min(100, boardState.myHp)}%` }} />
-            </div>
-            <span className="hp-value">{boardState.myHp}</span>
-          </div>
-          <div className="game-board-player-info">
-            <span className="player-name">{myNickname}</span>
-            <div className="status-effects">
-              {boardState.myStatusEffects.map((se, i) => (
-                <span key={i} className="status-badge">{se.type} ×{se.duration}</span>
-              ))}
-            </div>
-          </div>
+        {/* ── Chat column ── */}
+        <div style={S.chatCol}>
+          <ChatPanel currentUserId={myUserIdRef.current} roomId={roomId} />
         </div>
-
-        {/* Hand area */}
-        <HandArea
-          cardIds={boardState.myCardsInHand}
-          selectedIds={selectedCardIds}
-          disabled={boardState.phase === 'DRAW' || boardState.phase === 'RESULT'}
-          onSelect={toggleCard}
-          onSubmit={handleSubmit}
-          waitingForOpponent={waitingForOpponent}
-        />
       </div>
-
-      {/* Floating overlays */}
-      {damagePopups.map((popup) => (
-        <DamageFloatingNumber
-          key={popup.id}
-          popup={popup}
-          onDone={(id) => setDamagePopups((prev) => prev.filter((p) => p.id !== id))}
-        />
-      ))}
-      {skillTriggers.map((trigger) => (
-        <SkillEffectOverlay
-          key={trigger.id}
-          trigger={trigger}
-          onDone={(id) => setSkillTriggers((prev) => prev.filter((t) => t.id !== id))}
-        />
-      ))}
-
-      {disconnectMsg && (
-        <div className="game-disconnect-banner">{disconnectMsg}</div>
-      )}
-
-      {endModalData && (
-        <GameEndModal
-          summary={endModalData.summary}
-          isWinner={endModalData.isWinner}
-          onRematch={() => navigate('/lobby')}
-          onBackToLobby={() => navigate('/lobby')}
-        />
-      )}
     </div>
   );
 }
+
+// ── Styles ────────────────────────────────────────────────────────────────────
+const S = {
+  page: {
+    minHeight: '100vh',
+    background: 'radial-gradient(ellipse 1200px 700px at 50% -5%, #0a1520 0%, #05070c 60%)',
+    fontFamily: "'Inter', sans-serif",
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    padding: '12px',
+  },
+  outerLayout: {
+    width: '100%',
+    maxWidth: 1100,
+    display: 'flex',
+    gap: 12,
+    alignItems: 'stretch',
+    height: 'calc(100vh - 24px)',
+  },
+  gameCol: {
+    flex: 1,
+    minWidth: 0,
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 8,
+  },
+  chatCol: {
+    width: 240,
+    flexShrink: 0,
+    height: '100%',
+  },
+  topBar: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  timerBox: {
+    background: '#0d1220',
+    border: '1px solid rgba(255,255,255,.08)',
+    borderRadius: 10,
+    padding: '4px 16px',
+  },
+  timerText: {
+    fontFamily: "'JetBrains Mono', monospace",
+    fontWeight: 700,
+    fontSize: 22,
+  },
+  hpZone: {
+    background: '#0d1220',
+    border: '1px solid rgba(255,255,255,.07)',
+    borderRadius: 12,
+    padding: '12px 16px',
+    flexShrink: 0,
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 10,
+  },
+  playerRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: '50%',
+    background: '#182236',
+    border: '2px solid',
+    flexShrink: 0,
+  },
+  nickname: {
+    fontFamily: "'Rajdhani', sans-serif",
+    fontWeight: 700,
+    fontSize: 15,
+    color: '#e2e8f5',
+    marginBottom: 4,
+  },
+  hpRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+  hpLabel: {
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: 9,
+    color: '#8a93a8',
+    width: 20,
+  },
+  hpTrack: {
+    flex: 1,
+    height: 8,
+    borderRadius: 4,
+    background: '#182236',
+    overflow: 'hidden',
+    maxWidth: 300,
+  },
+  hpFill: {
+    height: '100%',
+    borderRadius: 4,
+    transition: 'width .4s ease, background .4s ease',
+  },
+  hpNum: {
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: 11,
+    color: '#c7cede',
+    minWidth: 60,
+  },
+  rainArea: {
+    flex: 1,
+    position: 'relative' as const,
+    background: 'rgba(5,7,12,.6)',
+    border: '1px solid rgba(18,200,168,.08)',
+    borderRadius: 12,
+    overflow: 'hidden',
+    minHeight: 0,
+  },
+  rainOverlay: {
+    position: 'absolute' as const,
+    inset: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'rgba(5,7,12,.7)',
+    zIndex: 10,
+  },
+  waitText: {
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: 18,
+    color: '#5c6a8a',
+    letterSpacing: '.08em',
+  },
+  countdownNum: {
+    fontFamily: "'Rajdhani', sans-serif",
+    fontWeight: 700,
+    fontSize: 120,
+    color: '#12c8a8',
+    lineHeight: 1,
+    textShadow: '0 0 40px rgba(18,200,168,.5)',
+  },
+  countdownLabel: {
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: 14,
+    color: '#5c6a8a',
+    letterSpacing: '.2em',
+    marginTop: 12,
+  },
+  inputField: {
+    width: '100%',
+    padding: '12px 16px',
+    borderRadius: 10,
+    border: '1px solid rgba(18,200,168,.3)',
+    background: 'rgba(18,200,168,.05)',
+    color: '#e2e8f5',
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: 16,
+    fontWeight: 700,
+    outline: 'none',
+    letterSpacing: '.05em',
+    boxSizing: 'border-box' as const,
+  },
+  disconnectBanner: {
+    position: 'absolute' as const,
+    bottom: 12,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    background: 'rgba(239,74,99,.12)',
+    border: '1px solid rgba(239,74,99,.4)',
+    borderRadius: 8,
+    padding: '8px 16px',
+    color: '#ef4a63',
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: 11,
+    whiteSpace: 'nowrap' as const,
+    zIndex: 20,
+  },
+  leaveText: {
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: 11,
+    color: '#c7cede',
+  },
+  dangerSm: {
+    padding: '5px 11px',
+    borderRadius: 7,
+    border: '1px solid rgba(239,74,99,.35)',
+    background: 'rgba(239,74,99,.06)',
+    color: '#ef4a63',
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: 10.5,
+    cursor: 'pointer',
+  },
+  ghostSm: {
+    padding: '5px 10px',
+    borderRadius: 6,
+    border: '1px solid rgba(255,255,255,.14)',
+    background: 'transparent',
+    color: '#8a93a8',
+    cursor: 'pointer',
+    fontSize: 10.5,
+    fontFamily: "'JetBrains Mono', monospace",
+  },
+  primaryBtn: {
+    padding: '11px 28px',
+    borderRadius: 10,
+    border: '1px solid rgba(18,200,168,.5)',
+    background: 'rgba(18,200,168,.12)',
+    color: '#12c8a8',
+    fontFamily: "'Rajdhani', sans-serif",
+    fontWeight: 700,
+    fontSize: 15,
+    cursor: 'pointer',
+  },
+  // End screen
+  endOverlay: {
+    minHeight: '100vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  endCard: {
+    background: '#0d1220',
+    border: '1px solid rgba(255,255,255,.1)',
+    borderRadius: 20,
+    padding: '40px 48px',
+    minWidth: 380,
+    textAlign: 'center' as const,
+    boxShadow: '0 32px 80px rgba(0,0,0,.6)',
+  },
+  endResult: {
+    fontFamily: "'Rajdhani', sans-serif",
+    fontWeight: 700,
+    fontSize: 48,
+    marginBottom: 8,
+  },
+  endReason: {
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: 12,
+    color: '#5c6a8a',
+    letterSpacing: '.1em',
+    marginBottom: 32,
+  },
+  endStats: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 12,
+    marginBottom: 32,
+  },
+  endStatRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: 13,
+  },
+  endStatLabel: {
+    color: '#5c6a8a',
+    minWidth: 80,
+    textAlign: 'right' as const,
+  },
+  endStatSep: {
+    color: '#3a4256',
+    fontSize: 10,
+  },
+  endActions: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: 12,
+  },
+} as const;

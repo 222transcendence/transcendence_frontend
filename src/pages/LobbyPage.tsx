@@ -12,7 +12,6 @@ import {
   sendFriendRequestByNickname, getPendingRequests, respondFriendRequest,
   type PendingRequest,
 } from '../api/client';
-import CharacterSelectModal from '../components/CharacterSelectModal';
 import type { Room } from '../types/lobby';
 import type { Friend } from '../types/friend';
 
@@ -32,7 +31,6 @@ export default function LobbyPage() {
   const [isConnecting, setIsConnecting] = useState(true);
   const [connectionError, setConnectionError] = useState('');
   const [pendingJoinRoom, setPendingJoinRoom] = useState<Room | null>(null);
-  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   // Friends
@@ -94,16 +92,14 @@ export default function LobbyPage() {
     if (tab === 'leaderboard') fetchLeaderboard().then(setLeaderboard).catch(() => {});
   }, [tab]);
 
-  const handleCreateRoom = (characterId: number) => {
+  const handleCreateRoom = () => {
     awaitingOwnRoomRef.current = true;
-    socketRef.current?.send('CREATE_ROOM', { characterId });
-    setIsCreatingRoom(false);
+    socketRef.current?.send('CREATE_ROOM', {});
   };
 
-  const handleJoinRoom = (characterId: number) => {
-    if (!pendingJoinRoom) return;
-    socketRef.current?.send('JOIN_ROOM', { roomId: pendingJoinRoom.id, characterId });
-    navigate(`/lobby/${pendingJoinRoom.id}`);
+  const handleJoinRoom = (room: Room) => {
+    socketRef.current?.send('JOIN_ROOM', { roomId: room.id });
+    navigate(`/lobby/${room.id}`);
     setPendingJoinRoom(null);
   };
 
@@ -165,7 +161,7 @@ export default function LobbyPage() {
         {tab === 'lobby' && (
           <LobbyTab
             rooms={rooms} isConnecting={isConnecting} connectionError={connectionError}
-            onCreateRoom={() => setIsCreatingRoom(true)} onJoinRoom={setPendingJoinRoom}
+            onCreateRoom={handleCreateRoom} onJoinRoom={(room) => handleJoinRoom(room)}
             currentUserId={myUserId}
           />
         )}
@@ -187,11 +183,8 @@ export default function LobbyPage() {
         )}
       </main>
 
-      {isCreatingRoom && (
-        <CharacterSelectModal title="캐릭터를 선택하세요" onConfirm={handleCreateRoom} onCancel={() => setIsCreatingRoom(false)} />
-      )}
       {pendingJoinRoom && (
-        <CharacterSelectModal title={`${pendingJoinRoom.host.nickname}의 방에 참가`} onConfirm={handleJoinRoom} onCancel={() => setPendingJoinRoom(null)} />
+        <div style={{ display: 'none' }} />
       )}
       {friendPopup && (
         <FriendProfilePopup friend={friendPopup} friendIds={friends.map(f => f.id)} onClose={() => setFriendPopup(null)} />
@@ -227,7 +220,7 @@ function LobbyTab({ rooms, isConnecting, connectionError, onCreateRoom, onJoinRo
         ) : rooms.length === 0 ? (
           <div style={S.emptyState}>열린 방이 없습니다. 방을 만들어보세요!</div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             {rooms.map(room => (
               <div key={room.id} style={{ ...S.card, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>

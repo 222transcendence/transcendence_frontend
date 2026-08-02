@@ -154,6 +154,14 @@ export default function LobbyPage() {
             </button>
           ))}
         </div>
+
+        <div style={{ flex: 1 }} />
+
+        <div style={S.sidebarFooter}>
+          <Link to="/terms-of-service" style={S.footerLink}>이용약관</Link>
+          <span style={S.footerDot}>·</span>
+          <Link to="/privacy-policy" style={S.footerLink}>개인정보처리방침</Link>
+        </div>
       </nav>
 
       {/* Main */}
@@ -479,6 +487,9 @@ const S = {
   dropdownDangerItem: { display: 'block', padding: '10px 14px', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 as const, fontSize: 13, color: '#ef4a63', background: 'transparent', border: 'none', width: '100%', textAlign: 'left' as const, cursor: 'pointer' },
   navList: { display: 'flex', flexDirection: 'column' as const, gap: 2, flex: 1 },
   navBtn: { display: 'flex', alignItems: 'center', gap: 9, padding: '9px 11px', borderRadius: 8, border: 'none', background: 'transparent', color: '#5c6a8a', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 as const, fontSize: 13, cursor: 'pointer', textAlign: 'left' as const },
+  sidebarFooter: { display: 'flex', alignItems: 'center', gap: 4, padding: '10px 4px 4px', flexWrap: 'wrap' as const },
+  footerLink: { fontFamily: "'Inter',sans-serif", fontSize: 11, color: '#3a4460', textDecoration: 'none', lineHeight: 1.4 },
+  footerDot: { fontSize: 10, color: '#2a3250' },
   navBtnActive: { background: 'rgba(18,200,168,.1)', color: '#12c8a8', border: '1px solid rgba(18,200,168,.25)' },
   main: { flex: 1, padding: '28px 24px 20px', display: 'flex', flexDirection: 'column' as const, height: '100vh', overflow: 'hidden', minWidth: 0 },
   sectionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 18, flexWrap: 'wrap' as const, gap: 10 },

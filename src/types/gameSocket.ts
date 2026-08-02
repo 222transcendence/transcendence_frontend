@@ -5,7 +5,7 @@ import type { GamePhase, RoomStatus, StatusEffect } from './game';
 export interface PlayerSocketInfo {
   userId: string;
   nickname: string;
-  characterId: number;
+  characterId?: number;
   hp: number;
   cardsInHand: number[];
 }
@@ -58,19 +58,39 @@ export interface PlayerLeftPayload {
   nickname: string;
 }
 
+import type { WordTier, MatchEndData } from './acidRain';
+
 // ─── Server-to-client event map ───────────────────────────────────────────────
 
 export interface ServerToClientEvents {
+  // legacy TCG events (kept for backwards compat)
   game_start: (data: { type: 'GAME_START'; payload: GameStartPayload; seq: number }) => void;
   phase_update: (data: { type: 'PHASE_UPDATE'; payload: PhaseUpdatePayload; seq: number }) => void;
   cards_accepted: (data: { type: 'CARDS_ACCEPTED'; payload: CardsAcceptedPayload; seq: number }) => void;
   player_left: (data: { type: 'PLAYER_LEFT'; payload: PlayerLeftPayload; seq: number }) => void;
+  // acid rain events
+  match_ready:           (data: { serverTime: number }) => void;
+  match_start:           (data: { serverTime: number; hostUserId: string; guestUserId: string }) => void;
+  countdown:             (data: { sec: number }) => void;
+  word_spawn:            (data: { wordId: string; text: string; tier: WordTier; fallDurationMs: number }) => void;
+  word_cleared:          (data: { wordId: string; byUserId: string; damage: number }) => void;
+  word_missed:           (data: { wordId: string; damage: number }) => void;
+  submit_rejected:       (data: { wordId: string; reason: 'ALREADY_CLEARED' }) => void;
+  hp_update:             (data: { hostHp: number; guestHp: number }) => void;
+  match_end:             (data: MatchEndData) => void;
+  opponent_disconnected: (data: { graceMs: number }) => void;
+  state_sync:            (data: {
+    elapsedSec: number; hostHp: number; guestHp: number;
+    activeWords: Array<{ wordId: string; text: string; tier: WordTier; remainingMs: number }>;
+    serverTime: number;
+  }) => void;
 }
 
 // ─── Client-to-server event map ───────────────────────────────────────────────
 
 export interface ClientToServerEvents {
-  join_room: (payload: { roomId: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
-  leave_room: (payload: { roomId: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
+  join_room:    (payload: { roomId: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
+  leave_room:   (payload: { roomId: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
   submit_cards: (payload: { roomId: string; cardIds: number[] }, callback?: (res: { event: string; data: unknown }) => void) => void;
+  word_submit:  (payload: { roomId: string; wordId: string; text: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
 }

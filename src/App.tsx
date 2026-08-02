@@ -12,6 +12,7 @@ import StatsPage from './pages/StatsPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import GameBoardPage from './pages/GameBoardPage';
 import PrivateRoute from './components/PrivateRoute';
+import InviteNotification from './components/InviteNotification';
 import { GameSocketProvider } from './context/GameSocketContext';
 import './App.css';
 
@@ -92,6 +93,7 @@ function App() {
         {/* Fallback to Home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <InviteNotification />
     </BrowserRouter>
     </GameSocketProvider>
   );

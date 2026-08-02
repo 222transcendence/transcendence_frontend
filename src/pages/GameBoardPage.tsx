@@ -301,8 +301,9 @@ export default function GameBoardPage() {
               </div>
             )}
             {phase === 'COUNTDOWN' && countdown !== null && (
-              <div style={S.rainOverlay}>
-                <div style={{ ...S.waitText, fontSize: 72, color: '#12c8a8' }}>{countdown}</div>
+              <div style={{ ...S.rainOverlay, flexDirection: 'column' }}>
+                <div style={S.countdownNum}>{countdown}</div>
+                <div style={S.countdownLabel}>준비하세요!</div>
               </div>
             )}
 
@@ -315,17 +316,17 @@ export default function GameBoardPage() {
                   left: `${word.x}%`,
                   animationDuration: `${word.fallDurationMs}ms`,
                   animationDelay: '0ms',
-                  padding: '4px 10px',
-                  borderRadius: 6,
-                  border: `1px solid ${tierColor[word.tier]}44`,
-                  background: `${tierColor[word.tier]}11`,
+                  padding: '5px 13px',
+                  borderRadius: 8,
+                  border: `1px solid ${tierColor[word.tier]}55`,
+                  background: `${tierColor[word.tier]}14`,
                   color: tierColor[word.tier],
                   fontFamily: "'JetBrains Mono', monospace",
                   fontWeight: 700,
-                  fontSize: 15,
+                  fontSize: 17,
                   whiteSpace: 'nowrap',
-                  boxShadow: `0 0 8px ${tierColor[word.tier]}33`,
-                  // highlight matching prefix
+                  boxShadow: `0 0 12px ${tierColor[word.tier]}44`,
+                  letterSpacing: '.04em',
                   opacity: 1,
                 } as React.CSSProperties}
               >
@@ -514,6 +515,21 @@ const S = {
     fontSize: 18,
     color: '#5c6a8a',
     letterSpacing: '.08em',
+  },
+  countdownNum: {
+    fontFamily: "'Rajdhani', sans-serif",
+    fontWeight: 700,
+    fontSize: 120,
+    color: '#12c8a8',
+    lineHeight: 1,
+    textShadow: '0 0 40px rgba(18,200,168,.5)',
+  },
+  countdownLabel: {
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: 14,
+    color: '#5c6a8a',
+    letterSpacing: '.2em',
+    marginTop: 12,
   },
   inputField: {
     width: '100%',

@@ -122,8 +122,7 @@ export default function StatsPage() {
                       vs{' '}
                       <Link to={`/stats/${opponent.id}`} style={{ color: '#12c8a8', textDecoration: 'none' }}>{opponent.nickname}</Link>
                     </span>
-                    <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#5c6a8a' }}>{m.turnsPlayed}턴</span>
-                    <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: '#3a4256', marginLeft: 12 }}>
+                    <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: '#3a4256' }}>
                       {new Date(m.createdAt).toLocaleDateString('ko-KR')}
                     </span>
                   </div>

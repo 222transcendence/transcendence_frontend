@@ -46,7 +46,15 @@ export default function WaitingRoomPage() {
     fetchMyProfile().then(me => { if (isMounted) setMyUserId(me.id); }).catch(() => {});
 
     socket.connect()
-      .then(() => { if (!isMounted) return; socket.send('GET_ROOM', { roomId }); setIsConnecting(false); })
+      .then(async () => {
+        if (!isMounted) return;
+        // GET_ROOM으로 현재 방 상태 조회
+        socket.send('GET_ROOM', { roomId });
+        // 초대 수락 등으로 직접 진입한 경우 guest로 JOIN_ROOM 시도
+        // 이미 host이거나 이미 참가한 경우 ACTION_REJECTED가 오므로 무시
+        socket.send('JOIN_ROOM', { roomId, characterId: 1 });
+        setIsConnecting(false);
+      })
       .catch(() => { if (isMounted) { setErrorMessage('로비 서버에 연결할 수 없습니다.'); setIsConnecting(false); } });
 
     // Chat socket for sending invites

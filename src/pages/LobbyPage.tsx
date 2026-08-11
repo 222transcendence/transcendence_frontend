@@ -32,6 +32,7 @@ export default function LobbyPage() {
   const [connectionError, setConnectionError] = useState('');
   const [pendingJoinRoom, setPendingJoinRoom] = useState<Room | null>(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [showAiModal, setShowAiModal] = useState(false);
 
   // Friends
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -170,7 +171,7 @@ export default function LobbyPage() {
           <LobbyTab
             rooms={rooms} isConnecting={isConnecting} connectionError={connectionError}
             onCreateRoom={handleCreateRoom} onJoinRoom={(room) => handleJoinRoom(room)}
-            currentUserId={myUserId}
+            currentUserId={myUserId} onAiClick={() => setShowAiModal(true)}
           />
         )}
         {tab === 'friends' && (
@@ -197,16 +198,19 @@ export default function LobbyPage() {
       {friendPopup && (
         <FriendProfilePopup friend={friendPopup} friendIds={friends.map(f => f.id)} onClose={() => setFriendPopup(null)} />
       )}
+      {showAiModal && (
+        <AiDifficultyModal onClose={() => setShowAiModal(false)} />
+      )}
     </div>
   );
 }
 
 // ── Lobby tab ─────────────────────────────────────────────────────────────────
 
-function LobbyTab({ rooms, isConnecting, connectionError, onCreateRoom, onJoinRoom, currentUserId }: {
+function LobbyTab({ rooms, isConnecting, connectionError, onCreateRoom, onJoinRoom, currentUserId, onAiClick }: {
   rooms: Room[]; isConnecting: boolean; connectionError: string;
   onCreateRoom: () => void; onJoinRoom: (room: Room) => void;
-  currentUserId: string;
+  currentUserId: string; onAiClick: () => void;
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column' as const, height: '100%' }}>
@@ -219,7 +223,7 @@ function LobbyTab({ rooms, isConnecting, connectionError, onCreateRoom, onJoinRo
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={onCreateRoom} disabled={isConnecting} style={S.primaryBtn}>+ 방 만들기</button>
             <button disabled style={{ ...S.ghostBtn, opacity: 0.4, cursor: 'not-allowed' }}>랜덤 매칭</button>
-            <button disabled style={{ ...S.ghostBtn, opacity: 0.4, cursor: 'not-allowed' }}>AI 대전</button>
+            <button onClick={onAiClick} style={S.ghostBtn}>AI 대전</button>
           </div>
         </div>
         {connectionError && <div style={S.errorBanner}>{connectionError}</div>}
@@ -391,6 +395,81 @@ function FriendProfilePopup({ friend, friendIds, onClose }: { friend: Friend; fr
     </div>
   );
 }
+
+// ── AI 실력 선택 (AI_OPPONENT_SPEC.md §4.2) ─────────────────────────────────────
+
+type AiDifficulty = 'BEGINNER' | 'NORMAL' | 'HARD';
+
+const AI_DIFFICULTY_CARDS: { key: AiDifficulty; label: string; desc: string }[] = [
+  { key: 'BEGINNER', label: 'Beginner', desc: '반응이 느리고 실수가 많아요' },
+  { key: 'NORMAL', label: 'Normal', desc: '평균적인 속도와 정확도로 플레이해요' },
+  { key: 'HARD', label: 'Hard', desc: '빠르고 정확하지만 가끔 실수해요' },
+];
+
+function AiDifficultyModal({ onClose }: { onClose: () => void }) {
+  const [difficulty, setDifficulty] = useState<AiDifficulty>('NORMAL');
+  const [starting, setStarting] = useState(false);
+
+  const handleStart = () => {
+    // 백엔드 AI 대전 세션 생성(CREATE_AI_PRACTICE)이 아직 구현되지 않음 (backend#80).
+    // 구현되면 이 핸들러에서 로비 소켓으로 요청을 보내고 AI_PRACTICE_CREATED 응답을 기다리도록 교체.
+    setStarting(true);
+  };
+
+  return (
+    <div style={AS.backdrop} onClick={onClose}>
+      <div style={AS.modal} onClick={e => e.stopPropagation()}>
+        <div style={AS.title}>AI 실력 선택</div>
+        <div style={AS.subtitle}>게임 규칙과 시간별 난이도 상승은 온라인 대전과 동일합니다.</div>
+
+        <div style={AS.cardRow}>
+          {AI_DIFFICULTY_CARDS.map(c => {
+            const selected = c.key === difficulty;
+            return (
+              <button
+                key={c.key}
+                onClick={() => setDifficulty(c.key)}
+                style={{ ...AS.card, ...(selected ? AS.cardSelected : {}) }}
+                aria-pressed={selected}
+              >
+                <div style={AS.cardLabelRow}>
+                  <span style={AS.cardLabel}>{c.label}</span>
+                  {selected && <span style={AS.cardCheck}>✓</span>}
+                </div>
+                <div style={AS.cardDesc}>{c.desc}</div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={AS.notice}>AI 대전 결과는 PvP 랭킹에 반영되지 않습니다.</div>
+
+        {starting ? (
+          <div style={AS.comingSoon}>AI 대전 기능은 아직 준비 중입니다. 곧 만나보실 수 있어요!</div>
+        ) : (
+          <button onClick={handleStart} style={{ ...S.primaryBtn, width: '100%', padding: '10px 0' }}>AI 대전 시작</button>
+        )}
+        <button onClick={onClose} style={{ ...S.ghostBtn, width: '100%', marginTop: 8 }}>닫기</button>
+      </div>
+    </div>
+  );
+}
+
+const AS = {
+  backdrop: { position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 },
+  modal: { background: '#0d1220', border: '1px solid rgba(255,255,255,.1)', borderRadius: 16, padding: '24px 22px', width: 380, boxShadow: '0 20px 50px rgba(0,0,0,.6)' },
+  title: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 18, color: '#e2e8f5', marginBottom: 6 },
+  subtitle: { fontFamily: "'JetBrains Mono',monospace", fontSize: 10.5, color: '#5c6a8a', marginBottom: 18, lineHeight: 1.5 },
+  cardRow: { display: 'flex', gap: 8, marginBottom: 16 },
+  card: { flex: 1, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 10, padding: '12px 10px', cursor: 'pointer', textAlign: 'left' as const, display: 'flex', flexDirection: 'column' as const, gap: 6 },
+  cardSelected: { background: 'rgba(18,200,168,.1)', border: '1.5px solid rgba(18,200,168,.6)' },
+  cardLabelRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
+  cardLabel: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 13, color: '#e2e8f5' },
+  cardCheck: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 13, color: '#12c8a8' },
+  cardDesc: { fontFamily: "'Inter',sans-serif", fontSize: 10.5, color: '#8a93a8', lineHeight: 1.4 },
+  notice: { fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: '#5c6a8a', textAlign: 'center' as const, marginBottom: 14 },
+  comingSoon: { fontFamily: "'JetBrains Mono',monospace", fontSize: 11.5, color: '#eab308', textAlign: 'center' as const, background: 'rgba(234,179,8,.08)', border: '1px solid rgba(234,179,8,.3)', borderRadius: 8, padding: '10px 8px' },
+} as const;
 
 // ── Global chat ───────────────────────────────────────────────────────────────
 

@@ -33,20 +33,32 @@ export default function WaitingRoomPage() {
     let isTransitioningToGame = false;
 
     const unsubs = [
-      socket.on('ROOM_UPDATED', ({ room: r }) => { if (isMounted && r.id === roomId) setRoom(r); }),
+      socket.on('ROOM_UPDATED', ({ room: r }) => { if (isMounted && r.id === roomId) { setRoom(r); setErrorMessage(''); } }),
       socket.on('ROOM_CLOSED', ({ roomId: id }) => {
         if (isMounted && id === roomId) { setErrorMessage('호스트가 방을 나갔습니다.'); setRoom(null); }
       }),
       socket.on('GAME_START', ({ roomId: id }) => {
         if (id === roomId) { isTransitioningToGame = true; navigate(`/game/${roomId}`); }
       }),
-      socket.on('ACTION_REJECTED', ({ message }) => { if (isMounted) setErrorMessage(message); }),
+      socket.on('ACTION_REJECTED', ({ message }) => {
+        // JOIN_ROOM 관련 정상 에러 (host 자신의 방, 이미 IN_GAME 상태) — 무시
+        const ignored = ['Cannot join your own room', 'Room is not in WAITING status'];
+        if (isMounted && !ignored.includes(message)) setErrorMessage(message);
+      }),
     ];
 
     fetchMyProfile().then(me => { if (isMounted) setMyUserId(me.id); }).catch(() => {});
 
     socket.connect()
-      .then(() => { if (!isMounted) return; socket.send('GET_ROOM', { roomId }); setIsConnecting(false); })
+      .then(async () => {
+        if (!isMounted) return;
+        // GET_ROOM으로 현재 방 상태 조회
+        socket.send('GET_ROOM', { roomId });
+        // 초대 수락 등으로 직접 진입한 경우 guest로 JOIN_ROOM 시도
+        // 이미 host이거나 이미 참가한 경우 ACTION_REJECTED가 오므로 무시
+        socket.send('JOIN_ROOM', { roomId, characterId: 1 });
+        setIsConnecting(false);
+      })
       .catch(() => { if (isMounted) { setErrorMessage('로비 서버에 연결할 수 없습니다.'); setIsConnecting(false); } });
 
     // Chat socket for sending invites
@@ -234,16 +246,17 @@ export default function WaitingRoomPage() {
                     </div>
                     <button
                       onClick={() => sendInvite(f)}
-                      disabled={invitedIds.has(f.id)}
+                      disabled={f.status !== 'ONLINE' || invitedIds.has(f.id)}
                       style={{
-                        padding: '4px 12px', borderRadius: 6, fontSize: 11, cursor: invitedIds.has(f.id) ? 'default' : 'pointer',
+                        padding: '4px 12px', borderRadius: 6, fontSize: 11,
+                        cursor: (f.status !== 'ONLINE' || invitedIds.has(f.id)) ? 'default' : 'pointer',
                         fontFamily: "'JetBrains Mono',monospace",
-                        border: invitedIds.has(f.id) ? '1px solid rgba(255,255,255,.08)' : '1px solid rgba(18,200,168,.4)',
-                        background: invitedIds.has(f.id) ? 'transparent' : 'rgba(18,200,168,.1)',
-                        color: invitedIds.has(f.id) ? '#3a4256' : '#12c8a8',
+                        border: (f.status !== 'ONLINE' || invitedIds.has(f.id)) ? '1px solid rgba(255,255,255,.08)' : '1px solid rgba(18,200,168,.4)',
+                        background: (f.status !== 'ONLINE' || invitedIds.has(f.id)) ? 'transparent' : 'rgba(18,200,168,.1)',
+                        color: (f.status !== 'ONLINE' || invitedIds.has(f.id)) ? '#3a4256' : '#12c8a8',
                       }}
                     >
-                      {invitedIds.has(f.id) ? '초대됨' : '초대'}
+                      {invitedIds.has(f.id) ? '초대됨' : f.status === 'OFFLINE' ? '오프라인' : f.status === 'IN_GAME' ? '게임 중' : '초대'}
                     </button>
                   </div>
                 ))}

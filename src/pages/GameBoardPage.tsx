@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { fetchMyProfile } from '../api/client';
 import ChatPanel from '../components/ChatPanel';
 import { useAcidRainSocket } from '../hooks/useAcidRainSocket';
-import type { FallingWord, MatchEndData, GamePhase } from '../types/acidRain';
+import type { FallingWord, MatchEndData, GamePhase, PlayerPublic, HpPair } from '../types/acidRain';
 
 const MAX_HP = 100;
 const MATCH_DURATION = 180;
@@ -48,7 +48,6 @@ export default function GameBoardPage() {
   // ── Identity ─────────────────────────────────────────────────────────────
   const [myNickname, setMyNickname] = useState('');
   const [opponentNickname, setOpponentNickname] = useState('');
-  void setOpponentNickname;
   const myUserIdRef   = useRef('');
   const isHostRef     = useRef(false);
 
@@ -103,49 +102,59 @@ export default function GameBoardPage() {
   }, []);
 
   // ── Socket handlers ───────────────────────────────────────────────────────
-  const handleMatchStart = useCallback((hostUserId: string, guestUserId: string) => {
-    void guestUserId;
-    isHostRef.current = hostUserId === myUserIdRef.current;
-    setPhase('IN_PROGRESS');
-    setMyHp(MAX_HP); setOppHp(MAX_HP);
-    setWords([]); setElapsed(0);
-    startTimer();
-    setTimeout(() => inputRef.current?.focus(), 100);
-  }, [startTimer]);
 
-  const handleCountdown = useCallback((sec: number) => {
-    setPhase('COUNTDOWN');
-    setCountdown(sec);
+  const applyHp = useCallback((hp: HpPair) => {
+    if (isHostRef.current) { setMyHp(hp.host); setOppHp(hp.guest); }
+    else                   { setMyHp(hp.guest); setOppHp(hp.host); }
   }, []);
+
+  const handleMatchReady = useCallback((players: { host: PlayerPublic; guest: PlayerPublic }) => {
+    // 상대방 닉네임 결정 — match_ready 시점에 players 정보 수신
+    setPhase('COUNTDOWN');
+    setCountdown(3);
+    // isHost는 match_start의 startAt/now 기준으로 최종 확정하지만
+    // 여기서 players로 미리 결정 가능
+    const myId = myUserIdRef.current;
+    isHostRef.current = players.host.userId === myId;
+    const oppNick = isHostRef.current ? players.guest.nickname : players.host.nickname;
+    setOpponentNickname(oppNick);
+  }, []);
+
+  const handleMatchStart = useCallback((startAt: string, now: string, initialHp: number) => {
+    void now;
+    const msUntilStart = Date.parse(startAt) - Date.now();
+    const startGame = () => {
+      setPhase('IN_PROGRESS');
+      setMyHp(initialHp); setOppHp(initialHp);
+      setWords([]); setElapsed(0);
+      startTimer();
+      setTimeout(() => inputRef.current?.focus(), 100);
+    };
+    if (msUntilStart > 0) setTimeout(startGame, msUntilStart);
+    else startGame();
+  }, [startTimer]);
 
   const handleWordSpawn = useCallback((word: FallingWord) => {
     setWords(prev => [...prev, word]);
   }, []);
 
-  const handleWordCleared = useCallback((wordId: string, byUserId: string, damage: number) => {
+  const handleWordCleared = useCallback((wordId: string, clearedBy: string, _damage: number, targetHp: HpPair) => {
     setMatchedIds(prev => new Set([...prev, wordId]));
     setTimeout(() => {
       setWords(prev => prev.filter(w => w.wordId !== wordId));
       setMatchedIds(prev => { const n = new Set(prev); n.delete(wordId); return n; });
     }, 300);
-    void damage;
-    if (byUserId !== myUserIdRef.current) {
-      flashHit('my');
-    } else {
-      flashHit('opp');
-    }
-  }, [flashHit]);
+    applyHp(targetHp);
+    if (clearedBy !== myUserIdRef.current) flashHit('my');
+    else flashHit('opp');
+  }, [applyHp, flashHit]);
 
-  const handleWordMissed = useCallback((wordId: string) => {
-    setWords(prev => prev.filter(w => w.wordId !== wordId));
+  const handleWordMissed = useCallback((_wordId: string, _splashDamage: number, targetHp: HpPair) => {
+    setWords(prev => prev.filter(w => w.wordId !== _wordId));
+    applyHp(targetHp);
     flashHit('my');
     flashHit('opp');
-  }, [flashHit]);
-
-  const handleHpUpdate = useCallback((hostHp: number, guestHp: number) => {
-    if (isHostRef.current) { setMyHp(hostHp); setOppHp(guestHp); }
-    else                   { setMyHp(guestHp); setOppHp(hostHp); }
-  }, []);
+  }, [applyHp, flashHit]);
 
   const handleMatchEnd = useCallback((data: MatchEndData) => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -155,34 +164,29 @@ export default function GameBoardPage() {
     setEndData({ ...data, isWinner });
   }, []);
 
-  const handleOpponentDisconnected = useCallback((graceMs: number) => {
+  const handleOpponentDisconnected = useCallback((_userId: string, graceMs: number) => {
     setDisconnectGrace(Math.ceil(graceMs / 1000));
   }, []);
 
-  const handleStateSync = useCallback((data: {
-    elapsedSec: number; hostHp: number; guestHp: number;
-    activeWords: Array<{ wordId: string; text: string; tier: 'easy' | 'medium' | 'hard'; remainingMs: number }>;
-  }) => {
-    setElapsed(data.elapsedSec);
-    handleHpUpdate(data.hostHp, data.guestHp);
+  const handleStateSync = useCallback((data: Parameters<import('../types/acidRain').AcidRainServerEvents['state_sync']>[0]) => {
+    setElapsed(Math.round(data.elapsedMs / 1000));
+    applyHp(data.hp);
+    const clockOffset = Date.parse(data.now) - Date.now();
     const restored: FallingWord[] = data.activeWords.map(w => ({
-      wordId: w.wordId, text: w.text, tier: w.tier,
-      x: Math.random() * 82,
-      fallDurationMs: w.remainingMs,
-      spawnedAt: Date.now(),
+      ...w,
+      animStartAt: Date.parse(w.spawnedAt) + clockOffset,
     }));
     setWords(restored);
     setPhase('IN_PROGRESS');
     startTimer();
-  }, [handleHpUpdate, startTimer]);
+  }, [applyHp, startTimer]);
 
   const { connectionState, submitWord } = useAcidRainSocket(roomId ?? '', {
+    onMatchReady: handleMatchReady,
     onMatchStart: handleMatchStart,
-    onCountdown: handleCountdown,
     onWordSpawn: handleWordSpawn,
     onWordCleared: handleWordCleared,
     onWordMissed: handleWordMissed,
-    onHpUpdate: handleHpUpdate,
     onMatchEnd: handleMatchEnd,
     onOpponentDisconnected: handleOpponentDisconnected,
     onStateSync: handleStateSync,
@@ -313,7 +317,7 @@ export default function GameBoardPage() {
                 key={word.wordId}
                 className={`word-chip${matchedIds.has(word.wordId) ? ' matched' : ''}`}
                 style={{
-                  left: `${word.x}%`,
+                  left: `${(word.lane / 4) * 90}%`,
                   animationDuration: `${word.fallDurationMs}ms`,
                   animationDelay: '0ms',
                   padding: '5px 13px',

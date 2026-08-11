@@ -44,7 +44,7 @@ export default function WaitingRoomPage() {
       }),
       socket.on('ACTION_REJECTED', ({ message }) => {
         // JOIN_ROOM 관련 정상 에러 (host 자신의 방, 이미 IN_GAME 상태) — 무시
-        const ignored = ['Cannot join your own room', 'Room is not in WAITING status'];
+        const ignored = ['Cannot join your own room', 'Room is not in WAITING status', 'Room is already full'];
         if (isMounted && !ignored.includes(message)) setErrorMessage(message);
       }),
     ];

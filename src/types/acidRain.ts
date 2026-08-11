@@ -27,6 +27,8 @@ export interface MatchEndData {
   winnerId: string | null;
   reason: EndReason;
   finalHp: HpPair;
+  wordsTyped: { host: number; guest: number };
+  durationSec: number;
 }
 
 // ── Server → Client ──────────────────────────────────────────────────────────

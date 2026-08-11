@@ -317,7 +317,7 @@ export default function GameBoardPage() {
                 key={word.wordId}
                 className={`word-chip${matchedIds.has(word.wordId) ? ' matched' : ''}`}
                 style={{
-                  left: `${word.x}%`,
+                  left: `${(word.lane / 4) * 90}%`,
                   animationDuration: `${word.fallDurationMs}ms`,
                   animationDelay: '0ms',
                   padding: '5px 13px',

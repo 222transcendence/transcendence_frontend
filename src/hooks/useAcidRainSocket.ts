@@ -4,24 +4,26 @@ import type {
   AcidRainServerEvents,
   FallingWord,
   MatchEndData,
-  PlayerPublic,
-  HpPair,
+  PlayerState,
+  PlayerHpUpdate,
 } from '../types/acidRain';
 
 export interface AcidRainHandlers {
-  onMatchReady?:           (players: { host: PlayerPublic; guest: PlayerPublic }) => void;
-  onMatchStart?:           (startAt: string, now: string, initialHp: number) => void;
-  onWordSpawn?:            (word: FallingWord) => void;
-  onWordCleared?:          (wordId: string, clearedBy: string, damage: number, targetHp: HpPair) => void;
-  onWordMissed?:           (wordId: string, splashDamage: number, targetHp: HpPair) => void;
-  onSubmitRejected?:       (wordId: string, reason: string) => void;
-  onMatchEnd?:             (data: MatchEndData) => void;
+  /** N인 전원 입장 완료 */
+  onMatchReady?: (players: PlayerState[]) => void;
+  onMatchStart?: (startAt: string, now: string, initialHp: number) => void;
+  onWordSpawn?: (word: FallingWord) => void;
+  onWordCleared?: (wordId: string, clearedBy: string, damage: number, hpUpdates: PlayerHpUpdate[]) => void;
+  onWordMissed?: (wordId: string, splashDamage: number, hpUpdates: PlayerHpUpdate[]) => void;
+  onSubmitRejected?: (wordId: string, reason: string) => void;
+  /** 탈락 이벤트 (N인 배틀로얄) */
+  onPlayerEliminated?: (userId: string, rank: number, finalHp: number) => void;
+  onMatchEnd?: (data: MatchEndData) => void;
   onOpponentDisconnected?: (userId: string, graceMs: number) => void;
-  onOpponentReconnected?:  (userId: string) => void;
-  onStateSync?:            (data: Parameters<AcidRainServerEvents['state_sync']>[0]) => void;
+  onOpponentReconnected?: (userId: string) => void;
+  onStateSync?: (data: Parameters<AcidRainServerEvents['state_sync']>[0]) => void;
 }
 
-/** 서버 `now`와 클라이언트 수신 시각의 차이를 클록 오프셋(ms)으로 반환 */
 function calcClockOffset(serverNow: string): number {
   return Date.parse(serverNow) - Date.now();
 }
@@ -31,7 +33,6 @@ export function useAcidRainSocket(roomId: string, handlers: AcidRainHandlers = {
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
 
-  // match_start 수신 시 계산된 클록 오프셋 보관 (word_spawn 보정에 사용)
   const clockOffsetRef = useRef<number>(0);
 
   useEffect(() => {
@@ -58,27 +59,29 @@ export function useAcidRainSocket(roomId: string, handlers: AcidRainHandlers = {
     };
 
     const onWordSpawn = (data: Parameters<AcidRainServerEvents['word_spawn']>[0]) => {
-      // 낙하 높이 동기화: 애니메이션 시작 시각 = 서버 spawnedAt + 클록 오프셋 보정
       const serverSpawnMs = Date.parse(data.spawnedAt);
       const animStartAt = serverSpawnMs + clockOffsetRef.current;
-
-      const word: FallingWord = {
-        ...data,
-        animStartAt,
-      };
+      const word: FallingWord = { ...data, animStartAt };
       handlersRef.current.onWordSpawn?.(word);
     };
 
     const onWordCleared = (data: Parameters<AcidRainServerEvents['word_cleared']>[0]) => {
-      handlersRef.current.onWordCleared?.(data.wordId, data.clearedBy, data.damage, data.targetHp);
+      // hpUpdates가 없으면 targetHp(구형 2인)에서 변환
+      const hpUpdates: PlayerHpUpdate[] = data.hpUpdates ?? [];
+      handlersRef.current.onWordCleared?.(data.wordId, data.clearedBy, data.damage, hpUpdates);
     };
 
     const onWordMissed = (data: Parameters<AcidRainServerEvents['word_missed']>[0]) => {
-      handlersRef.current.onWordMissed?.(data.wordId, data.splashDamage, data.targetHp);
+      const hpUpdates: PlayerHpUpdate[] = data.hpUpdates ?? [];
+      handlersRef.current.onWordMissed?.(data.wordId, data.splashDamage, hpUpdates);
     };
 
     const onSubmitRejected = (data: Parameters<AcidRainServerEvents['submit_rejected']>[0]) => {
       handlersRef.current.onSubmitRejected?.(data.wordId, data.reason);
+    };
+
+    const onPlayerEliminated = (data: Parameters<AcidRainServerEvents['player_eliminated']>[0]) => {
+      handlersRef.current.onPlayerEliminated?.(data.userId, data.rank, data.finalHp);
     };
 
     const onMatchEnd = (data: MatchEndData) => {
@@ -94,7 +97,6 @@ export function useAcidRainSocket(roomId: string, handlers: AcidRainHandlers = {
     };
 
     const onStateSync = (data: Parameters<AcidRainServerEvents['state_sync']>[0]) => {
-      // 재접속 시 클록 오프셋 갱신
       clockOffsetRef.current = calcClockOffset(data.now);
       handlersRef.current.onStateSync?.(data);
     };
@@ -105,6 +107,7 @@ export function useAcidRainSocket(roomId: string, handlers: AcidRainHandlers = {
     socket.on('word_cleared', onWordCleared);
     socket.on('word_missed', onWordMissed);
     socket.on('submit_rejected', onSubmitRejected);
+    socket.on('player_eliminated', onPlayerEliminated);
     socket.on('match_end', onMatchEnd);
     socket.on('opponent_disconnected', onOpponentDisconnected);
     socket.on('opponent_reconnected', onOpponentReconnected);
@@ -117,6 +120,7 @@ export function useAcidRainSocket(roomId: string, handlers: AcidRainHandlers = {
       socket.off('word_cleared', onWordCleared);
       socket.off('word_missed', onWordMissed);
       socket.off('submit_rejected', onSubmitRejected);
+      socket.off('player_eliminated', onPlayerEliminated);
       socket.off('match_end', onMatchEnd);
       socket.off('opponent_disconnected', onOpponentDisconnected);
       socket.off('opponent_reconnected', onOpponentReconnected);
@@ -124,9 +128,12 @@ export function useAcidRainSocket(roomId: string, handlers: AcidRainHandlers = {
     };
   }, [socket]);
 
-  const submitWord = useCallback((wordId: string, text: string) => {
-    socket?.emit('word_submit', { roomId, wordId, text, clientTs: Date.now() });
-  }, [socket, roomId]);
+  const submitWord = useCallback(
+    (wordId: string, text: string) => {
+      socket?.emit('word_submit', { roomId, wordId, text, clientTs: Date.now() });
+    },
+    [socket, roomId],
+  );
 
   return { connectionState, submitWord };
 }

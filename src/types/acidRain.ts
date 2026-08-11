@@ -5,8 +5,23 @@ export type EndReason = 'KO' | 'TIME_LIMIT' | 'FORFEIT';
 export interface PlayerPublic {
   userId: string;
   nickname: string;
+  avatar?: string;
 }
 
+/** N인 대응 플레이어 상태 (HP 포함) */
+export interface PlayerState extends PlayerPublic {
+  hp: number;
+  /** 탈락 확정 시 rank 기록, 생존 중은 undefined */
+  rank?: number;
+}
+
+/** N인 HP 업데이트 페이로드 */
+export interface PlayerHpUpdate {
+  userId: string;
+  hp: number;
+}
+
+/** 하위호환: 구형 2인 매치용 HP 쌍 */
 export interface HpPair {
   host: number;
   guest: number;
@@ -15,38 +30,42 @@ export interface HpPair {
 export interface FallingWord {
   wordId: string;
   text: string;
-  tier: WordTier;
-  lane: number;        // 서버가 결정하는 레인 (0~4)
+  keystrokes: number;
+  lane: number;
   fallDurationMs: number;
-  spawnedAt: string;   // ISO8601 — 서버 발행 시각, 클록 보정에 사용
+  spawnedAt: string;
   /** 클라이언트가 보정 후 계산한 애니메이션 시작 epoch (ms) */
   animStartAt: number;
 }
 
+export interface PlayerRank {
+  userId: string;
+  rank: number;
+  finalHp: number;
+}
+
 export interface MatchEndData {
+  /** 단독 우승자 (공동 우승 시 null) */
   winnerId: string | null;
   reason: EndReason;
-  finalHp: HpPair;
-  wordsTyped: { host: number; guest: number };
+  /** N인 최종 순위 (rank=1이 우승) */
+  ranking: PlayerRank[];
   durationSec: number;
+  /** 하위호환: 구형 2인 매치 finalHp */
+  finalHp?: HpPair;
+  wordsTyped?: Record<string, number>;
 }
 
 // ── Server → Client ──────────────────────────────────────────────────────────
 
 export interface AcidRainServerEvents {
-  /** 양쪽 소켓 룸 입장 완료 — 카운트다운 시작 신호 */
+  /** 전원 입장 완료 — players[] 기반 N인 */
   match_ready: (data: {
     roomId: string;
     protocolVersion: string;
-    players: { host: PlayerPublic; guest: PlayerPublic };
+    players: PlayerState[];
   }) => void;
 
-  /**
-   * 동기화된 매치 시작.
-   * - `startAt`: 게임 시작 시각 (ISO8601) — 카운트다운 종료 시각
-   * - `now`: 서버 현재 시각 (ISO8601) — 클록 오차 보정용
-   * - `initialHp`: 양쪽 초기 HP (100)
-   */
   match_start: (data: {
     roomId: string;
     startAt: string;
@@ -54,52 +73,59 @@ export interface AcidRainServerEvents {
     initialHp: number;
   }) => void;
 
-  /** 낙하 단어 스폰. `lane`(0~4)과 `spawnedAt`은 높이 동기화에 필수 */
   word_spawn: (data: {
     wordId: string;
     text: string;
-    tier: WordTier;
+    keystrokes: number;
     lane: number;
     fallDurationMs: number;
-    spawnedAt: string; // ISO8601
+    spawnedAt: string;
   }) => void;
 
-  /** 누군가 먼저 정타 — 상대 HP 감소. `targetHp`로 HP 상태 갱신 */
+  /** 정타 — players[] HP 업데이트 */
   word_cleared: (data: {
     wordId: string;
-    clearedBy: string; // userId
+    clearedBy: string;
     damage: number;
-    targetHp: HpPair;
+    /** N인 HP 업데이트 배열 */
+    hpUpdates: PlayerHpUpdate[];
+    /** 하위호환: 2인 targetHp */
+    targetHp?: HpPair;
   }) => void;
 
-  /** 아무도 못 지운 단어 바닥 도달 — 양쪽 HP 감소 */
+  /** 바닥 도달 — players[] HP 업데이트 */
   word_missed: (data: {
     wordId: string;
     splashDamage: number;
-    targetHp: HpPair;
+    hpUpdates: PlayerHpUpdate[];
+    targetHp?: HpPair;
   }) => void;
 
-  /** 제출자에게만 전송 */
   submit_rejected: (data: {
     wordId: string;
     reason: 'ALREADY_CLEARED' | 'NOT_FOUND' | 'WRONG_TEXT';
   }) => void;
 
-  /** 재접속 시 전체 스냅샷 */
+  /** 탈락 이벤트 (N인 배틀로얄) */
+  player_eliminated: (data: {
+    userId: string;
+    rank: number;
+    finalHp: number;
+  }) => void;
+
   state_sync: (data: {
     roomId: string;
-    hp: HpPair;
+    players: PlayerState[];
     activeWords: Array<{
       wordId: string;
       text: string;
-      tier: WordTier;
+      keystrokes: number;
       lane: number;
       fallDurationMs: number;
-      spawnedAt: string; // ISO8601 — 원래 스폰 시각 그대로
+      spawnedAt: string;
     }>;
     elapsedMs: number;
-    spawnIntervalMs: number;
-    now: string; // ISO8601 — 클록 보정용
+    now: string;
   }) => void;
 
   opponent_disconnected: (data: { userId: string; graceMs: number }) => void;
@@ -113,6 +139,5 @@ export interface AcidRainServerEvents {
 export interface AcidRainClientEvents {
   join_room:   (payload: { roomId: string }) => void;
   leave_room:  (payload: { roomId: string }) => void;
-  /** `clientTs`는 지연 텔레메트리용 — 판정에는 사용 안 함 */
   word_submit: (payload: { roomId: string; wordId: string; text: string; clientTs: number }) => void;
 }

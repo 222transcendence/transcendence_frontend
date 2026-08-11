@@ -18,6 +18,7 @@ export default function ChatPanel({ currentUserId, roomId }: ChatPanelProps) {
   const socketRef = useRef<Socket | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const isOpenRef = useRef(isOpen);
+  const isComposingRef = useRef(false);
 
   useEffect(() => { isOpenRef.current = isOpen; }, [isOpen]);
 
@@ -36,14 +37,32 @@ export default function ChatPanel({ currentUserId, roomId }: ChatPanelProps) {
         const filtered = roomId
           ? history.filter(m => m.roomId === roomId)
           : history.filter(m => !m.roomId);
-        setMessages(filtered);
+        // 글로벌 채팅은 sessionStorage 캐시와 병합해 사라지지 않게 처리
+        if (!roomId) {
+          const cached = sessionStorage.getItem('globalChatMessages');
+          const cachedMsgs: ChatMessage[] = cached ? JSON.parse(cached) : [];
+          const merged = [...filtered];
+          for (const m of cachedMsgs) {
+            if (!merged.find(x => x.id === m.id)) merged.push(m);
+          }
+          merged.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+          setMessages(merged);
+        } else {
+          setMessages(filtered);
+        }
       } catch { /* non-fatal */ }
     });
 
     socket.on('receive_message', (msg: ChatMessage) => {
       const belongs = roomId ? msg.roomId === roomId : !msg.roomId;
       if (!belongs) return;
-      setMessages(prev => [...prev, msg]);
+      setMessages(prev => {
+        const next = [...prev, msg];
+        if (!roomId) {
+          sessionStorage.setItem('globalChatMessages', JSON.stringify(next.slice(-200)));
+        }
+        return next;
+      });
       if (!isOpenRef.current) setUnread(n => n + 1);
     });
 
@@ -73,12 +92,13 @@ export default function ChatPanel({ currentUserId, roomId }: ChatPanelProps) {
     if (isOpen) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isOpen]);
 
-  const sendMessage = () => {
+  const sendMessage = useCallback(() => {
+    if (isComposingRef.current) return;
     const content = input.trim();
     if (!content || !socketRef.current?.connected) return;
     socketRef.current.emit('send_message', { content, type: 'NORMAL', roomId });
     setInput('');
-  };
+  }, [input, roomId]);
 
   if (isGame) {
     return (
@@ -110,7 +130,9 @@ export default function ChatPanel({ currentUserId, roomId }: ChatPanelProps) {
           <input
             value={input}
             onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && sendMessage()}
+            onCompositionStart={() => { isComposingRef.current = true; }}
+            onCompositionEnd={() => { isComposingRef.current = false; }}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && !isComposingRef.current) sendMessage(); }}
             placeholder="메시지…"
             style={GS.input}
           />
@@ -165,7 +187,9 @@ export default function ChatPanel({ currentUserId, roomId }: ChatPanelProps) {
             <input
               value={input}
               onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && sendMessage()}
+              onCompositionStart={() => { isComposingRef.current = true; }}
+            onCompositionEnd={() => { isComposingRef.current = false; }}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && !isComposingRef.current) sendMessage(); }}
               placeholder="메시지 입력…"
               style={FS.input}
             />

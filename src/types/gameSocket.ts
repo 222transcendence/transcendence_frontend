@@ -58,7 +58,7 @@ export interface PlayerLeftPayload {
   nickname: string;
 }
 
-import type { WordTier, MatchEndData } from './acidRain';
+import type { MatchEndData } from './acidRain';
 
 // ─── Server-to-client event map ───────────────────────────────────────────────
 
@@ -69,21 +69,16 @@ export interface ServerToClientEvents {
   cards_accepted: (data: { type: 'CARDS_ACCEPTED'; payload: CardsAcceptedPayload; seq: number }) => void;
   player_left: (data: { type: 'PLAYER_LEFT'; payload: PlayerLeftPayload; seq: number }) => void;
   // acid rain events
-  match_ready:           (data: { serverTime: number }) => void;
-  match_start:           (data: { serverTime: number; hostUserId: string; guestUserId: string }) => void;
-  countdown:             (data: { sec: number }) => void;
-  word_spawn:            (data: { wordId: string; text: string; tier: WordTier; fallDurationMs: number }) => void;
-  word_cleared:          (data: { wordId: string; byUserId: string; damage: number }) => void;
-  word_missed:           (data: { wordId: string; damage: number }) => void;
-  submit_rejected:       (data: { wordId: string; reason: 'ALREADY_CLEARED' }) => void;
-  hp_update:             (data: { hostHp: number; guestHp: number }) => void;
+  match_ready:           (data: Parameters<import('./acidRain').AcidRainServerEvents['match_ready']>[0]) => void;
+  match_start:           (data: Parameters<import('./acidRain').AcidRainServerEvents['match_start']>[0]) => void;
+  word_spawn:            (data: Parameters<import('./acidRain').AcidRainServerEvents['word_spawn']>[0]) => void;
+  word_cleared:          (data: Parameters<import('./acidRain').AcidRainServerEvents['word_cleared']>[0]) => void;
+  word_missed:           (data: Parameters<import('./acidRain').AcidRainServerEvents['word_missed']>[0]) => void;
+  submit_rejected:       (data: Parameters<import('./acidRain').AcidRainServerEvents['submit_rejected']>[0]) => void;
   match_end:             (data: MatchEndData) => void;
-  opponent_disconnected: (data: { graceMs: number }) => void;
-  state_sync:            (data: {
-    elapsedSec: number; hostHp: number; guestHp: number;
-    activeWords: Array<{ wordId: string; text: string; tier: WordTier; remainingMs: number }>;
-    serverTime: number;
-  }) => void;
+  opponent_disconnected: (data: Parameters<import('./acidRain').AcidRainServerEvents['opponent_disconnected']>[0]) => void;
+  opponent_reconnected:  (data: Parameters<import('./acidRain').AcidRainServerEvents['opponent_reconnected']>[0]) => void;
+  state_sync:            (data: Parameters<import('./acidRain').AcidRainServerEvents['state_sync']>[0]) => void;
 }
 
 // ─── Client-to-server event map ───────────────────────────────────────────────
@@ -92,5 +87,5 @@ export interface ClientToServerEvents {
   join_room:    (payload: { roomId: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
   leave_room:   (payload: { roomId: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
   submit_cards: (payload: { roomId: string; cardIds: number[] }, callback?: (res: { event: string; data: unknown }) => void) => void;
-  word_submit:  (payload: { roomId: string; wordId: string; text: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
+  word_submit:  (payload: { roomId: string; wordId: string; text: string; clientTs?: number }, callback?: (res: { event: string; data: unknown }) => void) => void;
 }

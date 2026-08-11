@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
+import { getValidAccessToken } from '../api/client';
 import type { ChatMessage } from '../types/chat';
 
 interface InvitePopup {
@@ -14,24 +15,29 @@ export default function InviteNotification() {
   const [invite, setInvite] = useState<InvitePopup | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
-    if (!token) return;
+    let cancelled = false;
 
-    const socket = io('/chat', {
-      path: '/socketio',
-      auth: { token: `Bearer ${token}` },
-    });
-    socketRef.current = socket;
+    (async () => {
+      const token = await getValidAccessToken();
+      if (!token || cancelled) return;
 
-    socket.on('receive_message', (msg: ChatMessage) => {
-      if (msg.type !== 'INVITE') return;
-      setInvite({ roomId: msg.content, senderNickname: msg.sender.nickname });
-    });
+      const socket = io('/chat', {
+        path: '/socketio',
+        auth: { token: `Bearer ${token}` },
+      });
+      socketRef.current = socket;
 
-    socket.on('connect_error', () => socket.disconnect());
+      socket.on('receive_message', (msg: ChatMessage) => {
+        if (msg.type !== 'INVITE') return;
+        setInvite({ roomId: msg.content, senderNickname: msg.sender.nickname });
+      });
+
+      socket.on('connect_error', () => socket.disconnect());
+    })();
 
     return () => {
-      socket.disconnect();
+      cancelled = true;
+      socketRef.current?.disconnect();
       socketRef.current = null;
     };
   }, []);

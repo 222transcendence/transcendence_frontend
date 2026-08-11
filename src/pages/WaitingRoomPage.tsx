@@ -17,8 +17,6 @@ export default function WaitingRoomPage() {
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
-  const [myAvatar, setMyAvatar] = useState<string | null>(null);
-  const [oppAvatar, setOppAvatar] = useState<string | null>(null);
   const [oppProfile, setOppProfile] = useState<PublicUserProfile | null>(null);
   const [isAlreadyFriend, setIsAlreadyFriend] = useState(false);
   const [friendStatus, setFriendStatus] = useState<'idle' | 'sent' | 'failed'>('idle');
@@ -44,12 +42,12 @@ export default function WaitingRoomPage() {
       }),
       socket.on('ACTION_REJECTED', ({ message }) => {
         // JOIN_ROOM 관련 정상 에러 (host 자신의 방, 이미 IN_GAME 상태) — 무시
-        const ignored = ['Cannot join your own room', 'Room is not in WAITING status', 'Room is already full'];
+        const ignored = ['Cannot join your own room', 'Room is not in WAITING status'];
         if (isMounted && !ignored.includes(message)) setErrorMessage(message);
       }),
     ];
 
-    fetchMyProfile().then(me => { if (isMounted) { setMyUserId(me.id); setMyAvatar(me.avatar ?? null); } }).catch(() => {});
+    fetchMyProfile().then(me => { if (isMounted) setMyUserId(me.id); }).catch(() => {});
 
     socket.connect()
       .then(async () => {
@@ -101,11 +99,6 @@ export default function WaitingRoomPage() {
   const myPlayer = room && (room.host.userId === myUserId ? room.host : room.guest);
   const isHost = room?.host.userId === myUserId;
   const opponent = room && (isHost ? room.guest : room.host);
-
-  useEffect(() => {
-    if (!opponent) return;
-    fetchUserProfile(opponent.userId).then(p => setOppAvatar(p.avatar ?? null)).catch(() => {});
-  }, [opponent?.userId]);
 
   const toggleReady = () => {
     if (!roomId || !myPlayer) return;
@@ -170,7 +163,7 @@ export default function WaitingRoomPage() {
           <div style={S.playersRow}>
             {/* Host */}
             <div style={{ ...S.playerCard, borderColor: room.host.ready ? '#12c8a8' : 'rgba(255,255,255,.1)' }}>
-              <div style={{ ...S.playerDot, backgroundImage: (isHost ? myAvatar : oppAvatar) ? `url(${isHost ? myAvatar : oppAvatar})` : 'none', backgroundColor: '#12c8a8' }} />
+              <div style={{ ...S.playerDot, background: '#12c8a8' }} />
               <div style={S.playerName}>{room.host.nickname}</div>
               <div style={S.roleTag}>HOST</div>
               <div style={{ ...S.readyBadge, background: room.host.ready ? 'rgba(18,200,168,.15)' : 'rgba(255,255,255,.05)', color: room.host.ready ? '#12c8a8' : '#5c6a8a', borderColor: room.host.ready ? 'rgba(18,200,168,.4)' : 'rgba(255,255,255,.1)' }}>
@@ -190,7 +183,7 @@ export default function WaitingRoomPage() {
             {/* Guest */}
             {room.guest ? (
               <div style={{ ...S.playerCard, borderColor: room.guest.ready ? '#12c8a8' : 'rgba(255,255,255,.1)' }}>
-                <div style={{ ...S.playerDot, backgroundImage: (isHost ? oppAvatar : myAvatar) ? `url(${isHost ? oppAvatar : myAvatar})` : 'none', backgroundColor: '#ef4a63' }} />
+                <div style={{ ...S.playerDot, background: '#ef4a63' }} />
                 <div style={S.playerName}>{room.guest.nickname}</div>
                 <div style={{ ...S.roleTag, color: '#8a93a8' }}>GUEST</div>
                 <div style={{ ...S.readyBadge, background: room.guest.ready ? 'rgba(18,200,168,.15)' : 'rgba(255,255,255,.05)', color: room.guest.ready ? '#12c8a8' : '#5c6a8a', borderColor: room.guest.ready ? 'rgba(18,200,168,.4)' : 'rgba(255,255,255,.1)' }}>
@@ -326,7 +319,7 @@ const S = {
   errorBox: { background: 'rgba(239,74,99,.1)', border: '1px solid rgba(239,74,99,.3)', borderRadius: 10, padding: '10px 14px', color: '#ef4a63', fontFamily: "'JetBrains Mono',monospace", fontSize: 12, marginBottom: 16 },
   playersRow: { display: 'flex', alignItems: 'center', gap: 20 },
   playerCard: { flex: 1, background: '#0d1220', border: '1px solid', borderRadius: 16, padding: '28px 24px', display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: 8, transition: 'border-color .3s' },
-  playerDot: { width: 56, height: 56, borderRadius: '50%', marginBottom: 4, backgroundSize: 'cover', backgroundPosition: 'center', overflow: 'hidden' as const },
+  playerDot: { width: 48, height: 48, borderRadius: '50%', marginBottom: 4 },
   playerName: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 18, color: '#e2e8f5' },
   playerChar: { fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: '.1em' },
   roleTag: { fontFamily: "'JetBrains Mono',monospace", fontSize: 9, letterSpacing: '.15em', color: '#12c8a8', marginTop: 2 },

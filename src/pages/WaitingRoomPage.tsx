@@ -33,7 +33,7 @@ export default function WaitingRoomPage() {
     let isTransitioningToGame = false;
 
     const unsubs = [
-      socket.on('ROOM_UPDATED', ({ room: r }) => { if (isMounted && r.id === roomId) setRoom(r); }),
+      socket.on('ROOM_UPDATED', ({ room: r }) => { if (isMounted && r.id === roomId) { setRoom(r); setErrorMessage(''); } }),
       socket.on('ROOM_CLOSED', ({ roomId: id }) => {
         if (isMounted && id === roomId) { setErrorMessage('호스트가 방을 나갔습니다.'); setRoom(null); }
       }),
@@ -41,8 +41,9 @@ export default function WaitingRoomPage() {
         if (id === roomId) { isTransitioningToGame = true; navigate(`/game/${roomId}`); }
       }),
       socket.on('ACTION_REJECTED', ({ message }) => {
-        // 방 생성자가 JOIN_ROOM 시도 시 발생하는 정상 에러 — 무시
-        if (isMounted && message !== 'Cannot join your own room') setErrorMessage(message);
+        // JOIN_ROOM 관련 정상 에러 (host 자신의 방, 이미 IN_GAME 상태) — 무시
+        const ignored = ['Cannot join your own room', 'Room is not in WAITING status'];
+        if (isMounted && !ignored.includes(message)) setErrorMessage(message);
       }),
     ];
 

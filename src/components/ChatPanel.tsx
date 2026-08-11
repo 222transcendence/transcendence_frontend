@@ -92,12 +92,13 @@ export default function ChatPanel({ currentUserId, roomId }: ChatPanelProps) {
     if (isOpen) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isOpen]);
 
-  const sendMessage = () => {
+  const sendMessage = useCallback(() => {
+    if (isComposingRef.current) return;
     const content = input.trim();
     if (!content || !socketRef.current?.connected) return;
     socketRef.current.emit('send_message', { content, type: 'NORMAL', roomId });
     setInput('');
-  };
+  }, [input, roomId]);
 
   if (isGame) {
     return (
@@ -131,7 +132,7 @@ export default function ChatPanel({ currentUserId, roomId }: ChatPanelProps) {
             onChange={e => setInput(e.target.value)}
             onCompositionStart={() => { isComposingRef.current = true; }}
             onCompositionEnd={() => { isComposingRef.current = false; }}
-            onKeyDown={e => { if (e.key === 'Enter' && !isComposingRef.current) sendMessage(); }}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && !isComposingRef.current) sendMessage(); }}
             placeholder="메시지…"
             style={GS.input}
           />
@@ -188,7 +189,7 @@ export default function ChatPanel({ currentUserId, roomId }: ChatPanelProps) {
               onChange={e => setInput(e.target.value)}
               onCompositionStart={() => { isComposingRef.current = true; }}
             onCompositionEnd={() => { isComposingRef.current = false; }}
-            onKeyDown={e => { if (e.key === 'Enter' && !isComposingRef.current) sendMessage(); }}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && !isComposingRef.current) sendMessage(); }}
               placeholder="메시지 입력…"
               style={FS.input}
             />

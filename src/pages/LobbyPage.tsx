@@ -107,7 +107,23 @@ export default function LobbyPage() {
   const handleAddFriend = async () => {
     if (!addNickname.trim()) return;
     try { await sendFriendRequestByNickname(addNickname.trim()); setAddMsg('친구 요청을 보냈습니다.'); setAddNickname(''); }
-    catch { setAddMsg('요청 실패: 닉네임을 확인해주세요.'); }
+	// catch { setAddMsg('요청 실패: 닉네임을 확인해주세요.'); }
+	catch (error) {
+		if (error instanceof Error) {
+			switch (error.message) {
+			case 'Already friends':
+				setAddMsg('이미 친구입니다.');
+				break;
+
+			case 'Friend request already exists':
+				setAddMsg('이미 친구 요청을 보냈습니다.');
+				break;
+
+			default:
+				setAddMsg('요청 실패: 닉네임을 확인해주세요.');
+			}
+		}
+	}
   };
 
   const handleRespondRequest = async (requestId: string, action: 'accept' | 'reject') => {

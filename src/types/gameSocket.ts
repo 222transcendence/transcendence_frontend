@@ -75,6 +75,7 @@ export interface ServerToClientEvents {
   word_cleared:          (data: Parameters<import('./acidRain').AcidRainServerEvents['word_cleared']>[0]) => void;
   word_missed:           (data: Parameters<import('./acidRain').AcidRainServerEvents['word_missed']>[0]) => void;
   submit_rejected:       (data: Parameters<import('./acidRain').AcidRainServerEvents['submit_rejected']>[0]) => void;
+  player_eliminated:     (data: Parameters<import('./acidRain').AcidRainServerEvents['player_eliminated']>[0]) => void;
   match_end:             (data: MatchEndData) => void;
   opponent_disconnected: (data: Parameters<import('./acidRain').AcidRainServerEvents['opponent_disconnected']>[0]) => void;
   opponent_reconnected:  (data: Parameters<import('./acidRain').AcidRainServerEvents['opponent_reconnected']>[0]) => void;

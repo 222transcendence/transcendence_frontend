@@ -479,6 +479,7 @@ function GlobalChatPanel({ currentUserId }: { currentUserId: string }) {
   const [height, setHeight] = useState(220);
   const socketRef = useRef<Socket | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const isComposingRef = useRef(false);
   const dragStartY = useRef(0);
   const dragStartH = useRef(0);
 
@@ -490,7 +491,7 @@ function GlobalChatPanel({ currentUserId }: { currentUserId: string }) {
     socket.on('connect', async () => {
       try { const h = await fetchChatHistory(); setMessages(h.filter((m: ChatMessage) => !m.roomId)); } catch { /* ok */ }
     });
-    socket.on('receive_message', (msg: ChatMessage) => { if (!msg.roomId) setMessages(prev => [...prev, msg]); });
+    socket.on('receive_message', (msg: ChatMessage) => { if (!msg.roomId && msg.type !== 'INVITE') setMessages(prev => [...prev, msg]); });
     socket.on('connect_error', () => socket.disconnect());
     return () => { socket.disconnect(); socketRef.current = null; };
   }, []);
@@ -498,6 +499,7 @@ function GlobalChatPanel({ currentUserId }: { currentUserId: string }) {
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   const send = () => {
+    if (isComposingRef.current) return;
     const content = input.trim();
     if (!content || !socketRef.current?.connected) return;
     socketRef.current.emit('send_message', { content, type: 'NORMAL' });
@@ -540,7 +542,7 @@ function GlobalChatPanel({ currentUserId }: { currentUserId: string }) {
         <div ref={bottomRef} />
       </div>
       <div style={CS.inputRow}>
-        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} placeholder="메시지 입력..." style={CS.input} />
+        <input value={input} onChange={e => setInput(e.target.value)} onCompositionStart={() => { isComposingRef.current = true; }} onCompositionEnd={() => { isComposingRef.current = false; }} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && !isComposingRef.current) send(); }} placeholder="메시지 입력..." style={CS.input} />
         <button onClick={send} disabled={!input.trim()} style={{ ...CS.sendBtn, opacity: input.trim() ? 1 : 0.4 }}>전송</button>
       </div>
     </div>

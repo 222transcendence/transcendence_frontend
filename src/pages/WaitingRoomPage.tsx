@@ -18,8 +18,8 @@ export default function WaitingRoomPage() {
   const [isConnecting, setIsConnecting] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [myAvatar, setMyAvatar] = useState<string | null>(null);
-  const [oppAvatar, setOppAvatar] = useState<string | null>(null);
-  const [oppProfile, setOppProfile] = useState<PublicUserProfile | null>(null);
+  const [otherAvatars, setOtherAvatars] = useState<Record<string, string | null>>({});
+  const [selectedPlayer, setSelectedPlayer] = useState<{ userId: string; profile: PublicUserProfile } | null>(null);
   const [isAlreadyFriend, setIsAlreadyFriend] = useState(false);
   const [friendStatus, setFriendStatus] = useState<'idle' | 'sent' | 'failed'>('idle');
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -98,35 +98,42 @@ export default function WaitingRoomPage() {
     setInvitedIds(prev => new Set([...prev, friend.id]));
   }, [roomId]);
 
-  const myPlayer = room && (room.host.userId === myUserId ? room.host : room.guest);
-  const isHost = room?.host.userId === myUserId;
-  const opponent = room && (isHost ? room.guest : room.host);
+  const myPlayer = room?.players.find(p => p.userId === myUserId);
+  const isHost = room?.hostUserId === myUserId;
+  const otherPlayers = room?.players.filter(p => p.userId !== myUserId) ?? [];
+  const emptySlots = room ? Math.max(0, room.maxPlayers - room.players.length) : 0;
+  const allReady = room ? room.players.length >= 2 && room.players.every(p => p.ready) : false;
 
   useEffect(() => {
-    if (!opponent) return;
-    fetchUserProfile(opponent.userId).then(p => setOppAvatar(p.avatar ?? null)).catch(() => {});
-  }, [opponent?.userId]);
+    otherPlayers.forEach(p => {
+      if (p.userId in otherAvatars) return;
+      fetchUserProfile(p.userId).then(prof => {
+        setOtherAvatars(prev => ({ ...prev, [p.userId]: prof.avatar ?? null }));
+      }).catch(() => {});
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room]);
 
   const toggleReady = () => {
     if (!roomId || !myPlayer) return;
     socketRef.current?.send('SET_READY', { roomId, ready: !myPlayer.ready });
   };
 
-  const openOppProfile = async () => {
-    if (!opponent) return;
+  const openPlayerProfile = async (userId: string) => {
     try {
       const [profile, friends] = await Promise.all([
-        fetchUserProfile(opponent.userId),
+        fetchUserProfile(userId),
         getFriends(),
       ]);
-      setOppProfile(profile);
-      setIsAlreadyFriend(friends.some(f => f.id === opponent.userId));
+      setSelectedPlayer({ userId, profile });
+      setIsAlreadyFriend(friends.some(f => f.id === userId));
+      setFriendStatus('idle');
     } catch { /* ignore */ }
   };
 
   const handleAddFriend = async () => {
-    if (!opponent) return;
-    try { await sendFriendRequest(opponent.userId); setFriendStatus('sent'); }
+    if (!selectedPlayer) return;
+    try { await sendFriendRequest(selectedPlayer.userId); setFriendStatus('sent'); }
     catch { setFriendStatus('failed'); }
   };
 
@@ -158,7 +165,7 @@ export default function WaitingRoomPage() {
           <div style={S.header}>
             <div style={S.logoText}>BATTLE ROOM</div>
             <div style={{ display: 'flex', gap: 8 }}>
-              {!room.guest && (
+              {room.players.length < room.maxPlayers && (
                 <button onClick={openInviteModal} style={S.inviteBtn}>👥 친구 초대</button>
               )}
               <button onClick={() => navigate('/lobby')} style={S.leaveBtn}>방 나가기</button>
@@ -168,55 +175,46 @@ export default function WaitingRoomPage() {
           {errorMessage && <div style={S.errorBox}>{errorMessage}</div>}
 
           <div style={S.playersRow}>
-            {/* Host */}
-            <div style={{ ...S.playerCard, borderColor: room.host.ready ? '#12c8a8' : 'rgba(255,255,255,.1)' }}>
-              <div style={{ ...S.playerDot, backgroundImage: (isHost ? myAvatar : oppAvatar) ? `url(${isHost ? myAvatar : oppAvatar})` : 'none', backgroundColor: '#12c8a8' }} />
-              <div style={S.playerName}>{room.host.nickname}</div>
-              <div style={S.roleTag}>HOST</div>
-              <div style={{ ...S.readyBadge, background: room.host.ready ? 'rgba(18,200,168,.15)' : 'rgba(255,255,255,.05)', color: room.host.ready ? '#12c8a8' : '#5c6a8a', borderColor: room.host.ready ? 'rgba(18,200,168,.4)' : 'rgba(255,255,255,.1)' }}>
-                {room.host.ready ? '● READY' : '○ 대기 중'}
-              </div>
-              {/* Opponent view button (shown to guest looking at host) */}
-              {!isHost && (
-                <button onClick={openOppProfile} style={S.viewProfileBtn}>프로필 보기</button>
-              )}
-            </div>
-
-            <div style={S.vsBlock}>
-              <div style={S.vsText}>VS</div>
-              {room.host.ready && room.guest?.ready && <div style={S.startingText}>게임 시작 중…</div>}
-            </div>
-
-            {/* Guest */}
-            {room.guest ? (
-              <div style={{ ...S.playerCard, borderColor: room.guest.ready ? '#12c8a8' : 'rgba(255,255,255,.1)' }}>
-                <div style={{ ...S.playerDot, backgroundImage: (isHost ? oppAvatar : myAvatar) ? `url(${isHost ? oppAvatar : myAvatar})` : 'none', backgroundColor: '#ef4a63' }} />
-                <div style={S.playerName}>{room.guest.nickname}</div>
-                <div style={{ ...S.roleTag, color: '#8a93a8' }}>GUEST</div>
-                <div style={{ ...S.readyBadge, background: room.guest.ready ? 'rgba(18,200,168,.15)' : 'rgba(255,255,255,.05)', color: room.guest.ready ? '#12c8a8' : '#5c6a8a', borderColor: room.guest.ready ? 'rgba(18,200,168,.4)' : 'rgba(255,255,255,.1)' }}>
-                  {room.guest.ready ? '● READY' : '○ 대기 중'}
+            {room.players.map(p => {
+              const isMe = p.userId === myUserId;
+              const isPlayerHost = p.userId === room.hostUserId;
+              const avatar = isMe ? myAvatar : otherAvatars[p.userId];
+              return (
+                <div key={p.userId} style={{ ...S.playerCard, borderColor: p.ready ? '#12c8a8' : 'rgba(255,255,255,.1)' }}>
+                  <div style={{ ...S.playerDot, backgroundImage: avatar ? `url(${avatar})` : 'none', backgroundColor: isPlayerHost ? '#12c8a8' : '#ef4a63' }} />
+                  <div style={S.playerName}>{p.nickname}</div>
+                  <div style={{ ...S.roleTag, color: isPlayerHost ? '#12c8a8' : '#8a93a8' }}>{isPlayerHost ? 'HOST' : 'PLAYER'}</div>
+                  <div style={{ ...S.readyBadge, background: p.ready ? 'rgba(18,200,168,.15)' : 'rgba(255,255,255,.05)', color: p.ready ? '#12c8a8' : '#5c6a8a', borderColor: p.ready ? 'rgba(18,200,168,.4)' : 'rgba(255,255,255,.1)' }}>
+                    {p.ready ? '● READY' : '○ 대기 중'}
+                  </div>
+                  {!isMe && (
+                    <button onClick={() => openPlayerProfile(p.userId)} style={S.viewProfileBtn}>프로필 보기</button>
+                  )}
                 </div>
-                {/* Host can view guest profile */}
-                {isHost && (
-                  <button onClick={openOppProfile} style={S.viewProfileBtn}>프로필 보기</button>
-                )}
-              </div>
-            ) : (
-              <div style={{ ...S.playerCard, borderStyle: 'dashed', opacity: 0.5 }}>
+              );
+            })}
+            {Array.from({ length: emptySlots }).map((_, i) => (
+              <div key={`empty-${i}`} style={{ ...S.playerCard, borderStyle: 'dashed', opacity: 0.5 }}>
                 <div style={S.waitingIcon}>?</div>
-                <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#5c6a8a', marginTop: 8 }}>게스트 대기 중…</div>
+                <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#5c6a8a', marginTop: 8 }}>플레이어 대기 중…</div>
               </div>
-            )}
+            ))}
           </div>
+
+          {allReady && (
+            <div style={{ textAlign: 'center', marginTop: 12 }}>
+              <div style={S.startingText}>게임 시작 중…</div>
+            </div>
+          )}
 
           {myPlayer && (
             <div style={{ textAlign: 'center', marginTop: 32 }}>
               <button onClick={toggleReady} style={{ ...(myPlayer.ready ? S.cancelBtn : S.readyBtn), minWidth: 180 }}>
                 {myPlayer.ready ? '준비 취소' : '준비 완료'}
               </button>
-              {isHost && !room.guest && (
+              {isHost && room.players.length < 2 && (
                 <div style={{ marginTop: 12, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#5c6a8a' }}>
-                  게스트가 입장할 때까지 기다려주세요
+                  다른 플레이어가 입장할 때까지 기다려주세요
                 </div>
               )}
             </div>
@@ -274,22 +272,22 @@ export default function WaitingRoomPage() {
         </div>
       )}
 
-      {/* Opponent profile popup */}
-      {oppProfile && (
-        <div style={PS.backdrop} onClick={() => setOppProfile(null)}>
+      {/* Player profile popup */}
+      {selectedPlayer && (
+        <div style={PS.backdrop} onClick={() => setSelectedPlayer(null)}>
           <div style={PS.modal} onClick={e => e.stopPropagation()}>
             <div style={PS.row}>
-              <div style={{ ...PS.avatar, backgroundImage: oppProfile.avatar ? `url(${oppProfile.avatar})` : 'none' }} />
+              <div style={{ ...PS.avatar, backgroundImage: selectedPlayer.profile.avatar ? `url(${selectedPlayer.profile.avatar})` : 'none' }} />
               <div>
-                <div style={PS.name}>{oppProfile.nickname}</div>
-                <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: oppProfile.status === 'ONLINE' ? '#12c8a8' : '#5c6a8a', marginTop: 2 }}>● {oppProfile.status}</div>
+                <div style={PS.name}>{selectedPlayer.profile.nickname}</div>
+                <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: selectedPlayer.profile.status === 'ONLINE' ? '#12c8a8' : '#5c6a8a', marginTop: 2 }}>● {selectedPlayer.profile.status}</div>
               </div>
             </div>
             <div style={PS.statsRow}>
               {[
-                { label: '승', value: oppProfile.wins, color: '#12c8a8' },
-                { label: '패', value: oppProfile.losses, color: '#ef4a63' },
-                { label: '승률', value: `${oppProfile.wins + oppProfile.losses > 0 ? Math.round(oppProfile.wins / (oppProfile.wins + oppProfile.losses) * 100) : 0}%`, color: '#eab308' },
+                { label: '승', value: selectedPlayer.profile.wins, color: '#12c8a8' },
+                { label: '패', value: selectedPlayer.profile.losses, color: '#ef4a63' },
+                { label: '승률', value: `${selectedPlayer.profile.wins + selectedPlayer.profile.losses > 0 ? Math.round(selectedPlayer.profile.wins / (selectedPlayer.profile.wins + selectedPlayer.profile.losses) * 100) : 0}%`, color: '#eab308' },
               ].map(item => (
                 <div key={item.label} style={PS.statBox}>
                   <div style={PS.statLabel}>{item.label}</div>
@@ -305,7 +303,7 @@ export default function WaitingRoomPage() {
                 {isAlreadyFriend ? '이미 친구입니다' : '친구 요청을 보냈습니다'}
               </div>
             )}
-            <button onClick={() => setOppProfile(null)} style={PS.closeBtn}>닫기</button>
+            <button onClick={() => setSelectedPlayer(null)} style={PS.closeBtn}>닫기</button>
           </div>
         </div>
       )}
@@ -324,8 +322,8 @@ const S = {
   inviteBtn: { padding: '6px 14px', borderRadius: 7, border: '1px solid rgba(18,200,168,.35)', background: 'rgba(18,200,168,.06)', color: '#12c8a8', fontFamily: "'JetBrains Mono',monospace", fontSize: 10.5, cursor: 'pointer' },
   leaveBtn: { padding: '6px 14px', borderRadius: 7, border: '1px solid rgba(239,74,99,.35)', background: 'rgba(239,74,99,.06)', color: '#ef4a63', fontFamily: "'JetBrains Mono',monospace", fontSize: 10.5, cursor: 'pointer' },
   errorBox: { background: 'rgba(239,74,99,.1)', border: '1px solid rgba(239,74,99,.3)', borderRadius: 10, padding: '10px 14px', color: '#ef4a63', fontFamily: "'JetBrains Mono',monospace", fontSize: 12, marginBottom: 16 },
-  playersRow: { display: 'flex', alignItems: 'center', gap: 20 },
-  playerCard: { flex: 1, background: '#0d1220', border: '1px solid', borderRadius: 16, padding: '28px 24px', display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: 8, transition: 'border-color .3s' },
+  playersRow: { display: 'flex', alignItems: 'stretch', gap: 16, flexWrap: 'wrap' as const },
+  playerCard: { flex: '1 1 200px', minWidth: 200, background: '#0d1220', border: '1px solid', borderRadius: 16, padding: '28px 24px', display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: 8, transition: 'border-color .3s' },
   playerDot: { width: 56, height: 56, borderRadius: '50%', marginBottom: 4, backgroundSize: 'cover', backgroundPosition: 'center', overflow: 'hidden' as const },
   playerName: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 18, color: '#e2e8f5' },
   playerChar: { fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: '.1em' },

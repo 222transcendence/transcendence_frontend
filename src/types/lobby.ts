@@ -14,8 +14,9 @@ export type RoomStatus = 'WAITING' | 'IN_GAME';
 
 export interface Room {
   id: string;
-  host: RoomPlayer;
-  guest: RoomPlayer | null;
+  hostUserId: string;
+  maxPlayers: number;
+  players: RoomPlayer[];
   status: RoomStatus;
   createdAt: string;
 }
@@ -30,7 +31,7 @@ export interface LobbyServerMessage {
 
 export interface LobbyClientMessage {
   LIST_ROOMS: Record<string, never>;
-  CREATE_ROOM: Record<string, never>;
+  CREATE_ROOM: { maxPlayers?: number };
   JOIN_ROOM: { roomId: string; characterId?: number };
   GET_ROOM: { roomId: string };
   LEAVE_ROOM: { roomId: string };

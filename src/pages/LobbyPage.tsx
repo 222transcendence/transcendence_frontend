@@ -67,7 +67,7 @@ export default function LobbyPage() {
           if (idx === -1) return [...prev, room];
           const next = [...prev]; next[idx] = room; return next;
         });
-        if (awaitingOwnRoomRef.current && room.host.userId === myUserIdRef.current) {
+        if (awaitingOwnRoomRef.current && room.players.some(p => p.userId === myUserIdRef.current)) {
           awaitingOwnRoomRef.current = false;
           navigate(`/lobby/${room.id}`);
         }
@@ -249,17 +249,21 @@ function LobbyTab({ rooms, isConnecting, connectionError, onCreateRoom, onJoinRo
           <div style={S.emptyState}>열린 방이 없습니다. 방을 만들어보세요!</div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            {rooms.map(room => (
-              <div key={room.id} style={{ ...S.card, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={S.cardTitle}>{room.host.nickname}의 방</div>
-                  <div style={S.cardSub}>{room.guest ? '2/2 명 · 게임 중' : '1/2 명 · 대기 중'}</div>
+            {rooms.map(room => {
+              const host = room.players.find(p => p.userId === room.hostUserId);
+              const isFull = room.players.length >= room.maxPlayers || room.status !== 'WAITING';
+              return (
+                <div key={room.id} style={{ ...S.card, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={S.cardTitle}>{host?.nickname ?? '알 수 없음'}의 방</div>
+                    <div style={S.cardSub}>{room.players.length}/{room.maxPlayers} 명 · {room.status === 'WAITING' ? '대기 중' : '게임 중'}</div>
+                  </div>
+                  <button onClick={() => onJoinRoom(room)} disabled={isFull} style={isFull ? S.disabledBtn : S.primaryBtn}>
+                    {isFull ? '참가 불가' : '참가하기'}
+                  </button>
                 </div>
-                <button onClick={() => onJoinRoom(room)} disabled={!!room.guest} style={room.guest ? S.disabledBtn : S.primaryBtn}>
-                  {room.guest ? '참가 불가' : '참가하기'}
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

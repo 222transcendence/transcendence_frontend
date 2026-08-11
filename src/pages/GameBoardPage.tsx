@@ -52,23 +52,19 @@ export default function GameBoardPage() {
 
   // ── Identity ─────────────────────────────────────────────────────────────
   const [myNickname, setMyNickname] = useState('');
-  const [opponentNickname, setOpponentNickname] = useState('');
   const myUserIdRef      = useRef('');
-  const opponentUserIdRef = useRef('');
 
   // ── Game state ────────────────────────────────────────────────────────────
   const [phase, setPhase]         = useState<GamePhase>('WAITING');
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [myHp, setMyHp]           = useState(MAX_HP);
-  const [oppHp, setOppHp]         = useState(MAX_HP);
+  const [players, setPlayers]     = useState<PlayerState[]>([]);
   const [elapsed, setElapsed]     = useState(0);
   const [words, setWords]         = useState<FallingWord[]>([]);
   const [matchedIds, setMatchedIds] = useState<Set<string>>(new Set());
   const [endData, setEndData]     = useState<(MatchEndData & { isWinner: boolean }) | null>(null);
   const [disconnectGrace, setDisconnectGrace] = useState<number | null>(null);
   const [leaveConfirm, setLeaveConfirm] = useState(false);
-  const [flashMy, setFlashMy]     = useState<'hit' | null>(null);
-  const [flashOpp, setFlashOpp]   = useState<'hit' | null>(null);
+  const [flashByUserId, setFlashByUserId] = useState<Record<string, boolean>>({});
 
   // ── Input ─────────────────────────────────────────────────────────────────
   const [input, setInput]     = useState('');
@@ -119,38 +115,26 @@ export default function GameBoardPage() {
       .catch(() => navigate('/login', { replace: true }));
   }, [navigate]);
 
-  // ── Flash helpers ─────────────────────────────────────────────────────────
-  const flashHit = useCallback((target: 'my' | 'opp') => {
-    if (target === 'my') {
-      setFlashMy('hit');
-      setTimeout(() => setFlashMy(null), 400);
-    } else {
-      setFlashOpp('hit');
-      setTimeout(() => setFlashOpp(null), 400);
-    }
+  // ── Flash helper — briefly highlight a player's HP row on hit ────────────────
+  const flashHit = useCallback((userId: string) => {
+    setFlashByUserId(prev => ({ ...prev, [userId]: true }));
+    setTimeout(() => setFlashByUserId(prev => ({ ...prev, [userId]: false })), 400);
   }, []);
 
   // ── Socket handlers ───────────────────────────────────────────────────────
 
-  // N인 프로토콜(hpUpdates)을 받지만, 현재 UI는 1:1(나 vs 상대) 렌더링만 지원한다
-  // — N인 HP 바 UI는 별도 이슈(#49)에서 다룬다. 내가 아닌 첫 번째 갱신을 "상대"로 취급.
   const applyHpUpdates = useCallback((updates: PlayerHpUpdate[]) => {
-    const myId = myUserIdRef.current;
-    for (const u of updates) {
-      if (u.userId === myId) setMyHp(u.hp);
-      else setOppHp(u.hp);
-    }
-  }, []);
+    setPlayers(prev => prev.map(p => {
+      const u = updates.find(x => x.userId === p.userId);
+      return u ? { ...p, hp: u.hp } : p;
+    }));
+    updates.forEach(u => flashHit(u.userId));
+  }, [flashHit]);
 
-  const handleMatchReady = useCallback((players: PlayerState[]) => {
+  const handleMatchReady = useCallback((matchPlayers: PlayerState[]) => {
     setPhase('COUNTDOWN');
     setCountdown(3);
-    const myId = myUserIdRef.current;
-    const opponent = players.find(p => p.userId !== myId);
-    if (opponent) {
-      opponentUserIdRef.current = opponent.userId;
-      setOpponentNickname(opponent.nickname);
-    }
+    setPlayers(matchPlayers);
   }, []);
 
   const handleMatchStart = useCallback((startAt: string, now: string, initialHp: number) => {
@@ -159,7 +143,7 @@ export default function GameBoardPage() {
     const msUntilStart = serverStartAtRef.current - (Date.now() + clockOffsetRef.current);
     const startGame = () => {
       setPhase('IN_PROGRESS');
-      setMyHp(initialHp); setOppHp(initialHp);
+      setPlayers(prev => prev.map(p => ({ ...p, hp: initialHp, rank: undefined })));
       setWords([]); setElapsed(0);
       startTimer();
       setTimeout(() => inputRef.current?.focus(), 100);
@@ -172,23 +156,23 @@ export default function GameBoardPage() {
     setWords(prev => [...prev, word]);
   }, []);
 
-  const handleWordCleared = useCallback((wordId: string, clearedBy: string, _damage: number, hpUpdates: PlayerHpUpdate[]) => {
+  const handleWordCleared = useCallback((wordId: string, _clearedBy: string, _damage: number, hpUpdates: PlayerHpUpdate[]) => {
     setMatchedIds(prev => new Set([...prev, wordId]));
     setTimeout(() => {
       setWords(prev => prev.filter(w => w.wordId !== wordId));
       setMatchedIds(prev => { const n = new Set(prev); n.delete(wordId); return n; });
     }, 300);
     applyHpUpdates(hpUpdates);
-    if (clearedBy !== myUserIdRef.current) flashHit('my');
-    else flashHit('opp');
-  }, [applyHpUpdates, flashHit]);
+  }, [applyHpUpdates]);
 
   const handleWordMissed = useCallback((_wordId: string, _splashDamage: number, hpUpdates: PlayerHpUpdate[]) => {
     setWords(prev => prev.filter(w => w.wordId !== _wordId));
     applyHpUpdates(hpUpdates);
-    flashHit('my');
-    flashHit('opp');
-  }, [applyHpUpdates, flashHit]);
+  }, [applyHpUpdates]);
+
+  const handlePlayerEliminated = useCallback((userId: string, rank: number, finalHp: number) => {
+    setPlayers(prev => prev.map(p => p.userId === userId ? { ...p, hp: finalHp, rank } : p));
+  }, []);
 
   const handleMatchEnd = useCallback((data: MatchEndData) => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -207,11 +191,7 @@ export default function GameBoardPage() {
     clockOffsetRef.current = clockOffset;
     // 서버 현재시각(now) - 경과시간(elapsedMs) = 서버 기준 매치 시작 시각
     serverStartAtRef.current = Date.parse(data.now) - data.elapsedMs;
-    const myId = myUserIdRef.current;
-    for (const p of data.players) {
-      if (p.userId === myId) setMyHp(p.hp);
-      else { setOppHp(p.hp); opponentUserIdRef.current = p.userId; setOpponentNickname(p.nickname); }
-    }
+    setPlayers(data.players);
     const restored: FallingWord[] = data.activeWords.map(w => {
       const animStartAt = Date.parse(w.spawnedAt) + clockOffset;
       return { ...w, animStartAt, renderDelayMs: animStartAt - Date.now() };
@@ -227,6 +207,7 @@ export default function GameBoardPage() {
     onWordSpawn: handleWordSpawn,
     onWordCleared: handleWordCleared,
     onWordMissed: handleWordMissed,
+    onPlayerEliminated: handlePlayerEliminated,
     onMatchEnd: handleMatchEnd,
     onOpponentDisconnected: handleOpponentDisconnected,
     onStateSync: handleStateSync,
@@ -244,19 +225,16 @@ export default function GameBoardPage() {
   }, [matchedIds, submitWord]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const myHpPct  = Math.max(0, (myHp  / MAX_HP) * 100);
-  const oppHpPct = Math.max(0, (oppHp / MAX_HP) * 100);
+  const myId = myUserIdRef.current;
+  const myPlayer = players.find(p => p.userId === myId) ?? { userId: myId, nickname: myNickname || '나', hp: MAX_HP };
+  const otherPlayers = players.filter(p => p.userId !== myId);
+  const myHpPct = Math.max(0, (myPlayer.hp / MAX_HP) * 100);
   const remaining = Math.max(0, MATCH_DURATION - elapsed);
+  const nicknameFor = (userId: string) => players.find(p => p.userId === userId)?.nickname ?? (userId === myId ? (myNickname || '나') : '???');
 
   // ── End modal ─────────────────────────────────────────────────────────────
   if (endData) {
-    const myId = myUserIdRef.current;
-    const myRankEntry = endData.ranking.find(r => r.userId === myId);
-    const oppRankEntry = endData.ranking.find(r => r.userId !== myId);
-    const myFinalHp = myRankEntry?.finalHp ?? myHp;
-    const oppFinalHp = oppRankEntry?.finalHp ?? oppHp;
-    const myWords  = endData.wordsTyped?.[myId] ?? 0;
-    const oppWords = oppRankEntry ? (endData.wordsTyped?.[oppRankEntry.userId] ?? 0) : 0;
+    const ranking = [...endData.ranking].sort((a, b) => a.rank - b.rank);
     return (
       <div style={S.page}>
         <div style={S.endOverlay}>
@@ -270,18 +248,14 @@ export default function GameBoardPage() {
               {endData.reason === 'FORFEIT' && '상대방 기권'}
             </div>
             <div style={S.endStats}>
-              <div style={S.endStatRow}>
-                <span style={S.endStatLabel}>최종 HP</span>
-                <span style={{ color: '#12c8a8' }}>{myFinalHp}</span>
-                <span style={S.endStatSep}>vs</span>
-                <span style={{ color: '#ef4a63' }}>{oppFinalHp}</span>
-              </div>
-              <div style={S.endStatRow}>
-                <span style={S.endStatLabel}>입력한 단어</span>
-                <span style={{ color: '#12c8a8' }}>{myWords}</span>
-                <span style={S.endStatSep}>vs</span>
-                <span style={{ color: '#ef4a63' }}>{oppWords}</span>
-              </div>
+              {ranking.map(r => (
+                <div key={r.userId} style={S.endStatRow}>
+                  <span style={S.endStatLabel}>#{r.rank}</span>
+                  <span style={{ color: r.userId === myId ? '#12c8a8' : '#c7cede', flex: 1, textAlign: 'left' as const }}>{nicknameFor(r.userId)}</span>
+                  <span style={{ color: '#8a93a8' }}>HP {r.finalHp}</span>
+                  <span style={{ color: '#8a93a8' }}>{endData.wordsTyped?.[r.userId] ?? 0}단어</span>
+                </div>
+              ))}
               <div style={S.endStatRow}>
                 <span style={S.endStatLabel}>게임 시간</span>
                 <span style={{ color: '#e2e8f5' }}>{fmtTime(endData.durationSec)}</span>
@@ -322,21 +296,38 @@ export default function GameBoardPage() {
             <div style={{ width: 80 }} />
           </div>
 
-          {/* Opponent HP */}
-          <div style={{ ...S.hpZone, background: flashOpp === 'hit' ? 'rgba(239,74,99,.1)' : 'transparent', transition: 'background .15s' }}>
-            <div style={S.playerRow}>
-              <div style={{ ...S.avatar, borderColor: '#ef4a63' }} />
-              <div style={{ flex: 1 }}>
-                <div style={S.nickname}>{opponentNickname || '상대방'}</div>
-                <div style={S.hpRow}>
-                  <span style={S.hpLabel}>HP</span>
-                  <div style={S.hpTrack}>
-                    <div style={{ ...S.hpFill, width: `${oppHpPct}%`, background: hpColor(oppHpPct) }} />
-                  </div>
-                  <span style={S.hpNum}>{oppHp} / {MAX_HP}</span>
+          {/* Other players' HP (up to 3, battle royale) */}
+          <div style={S.hpZone}>
+            {otherPlayers.length === 0 && phase === 'WAITING' && (
+              <div style={S.playerRow}>
+                <div style={{ ...S.avatar, borderColor: '#ef4a63' }} />
+                <div style={{ flex: 1 }}>
+                  <div style={S.nickname}>상대방</div>
                 </div>
               </div>
-            </div>
+            )}
+            {otherPlayers.map(p => {
+              const pct = Math.max(0, (p.hp / MAX_HP) * 100);
+              const eliminated = p.rank !== undefined;
+              return (
+                <div
+                  key={p.userId}
+                  style={{ ...S.playerRow, background: flashByUserId[p.userId] ? 'rgba(239,74,99,.1)' : 'transparent', transition: 'background .15s', opacity: eliminated ? 0.5 : 1, borderRadius: 8 }}
+                >
+                  <div style={{ ...S.avatar, borderColor: eliminated ? '#5c6a8a' : '#ef4a63' }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={S.nickname}>{p.nickname}{eliminated ? ` · 탈락 #${p.rank}` : ''}</div>
+                    <div style={S.hpRow}>
+                      <span style={S.hpLabel}>HP</span>
+                      <div style={S.hpTrack}>
+                        <div style={{ ...S.hpFill, width: `${pct}%`, background: hpColor(pct) }} />
+                      </div>
+                      <span style={S.hpNum}>{p.hp} / {MAX_HP}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {/* Rain area */}
@@ -397,17 +388,17 @@ export default function GameBoardPage() {
           </div>
 
           {/* My HP + input */}
-          <div style={{ ...S.hpZone, background: flashMy === 'hit' ? 'rgba(239,74,99,.1)' : 'transparent', transition: 'background .15s' }}>
+          <div style={{ ...S.hpZone, background: flashByUserId[myId] ? 'rgba(239,74,99,.1)' : 'transparent', transition: 'background .15s' }}>
             <div style={S.playerRow}>
               <div style={{ ...S.avatar, borderColor: '#12c8a8' }} />
               <div style={{ flex: 1 }}>
-                <div style={S.nickname}>{myNickname || '나'}</div>
+                <div style={S.nickname}>{myPlayer.nickname}</div>
                 <div style={S.hpRow}>
                   <span style={S.hpLabel}>HP</span>
                   <div style={S.hpTrack}>
                     <div style={{ ...S.hpFill, width: `${myHpPct}%`, background: hpColor(myHpPct) }} />
                   </div>
-                  <span style={S.hpNum}>{myHp} / {MAX_HP}</span>
+                  <span style={S.hpNum}>{myPlayer.hp} / {MAX_HP}</span>
                 </div>
               </div>
             </div>

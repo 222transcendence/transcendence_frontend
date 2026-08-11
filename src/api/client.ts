@@ -174,6 +174,17 @@ export async function getPendingRequests(): Promise<PendingRequest[]> {
   return parseEnvelope<PendingRequest[]>(response);
 }
 
+export interface SentRequest {
+  id: string;
+  receiver: { id: string; nickname: string; status: string; avatar: string | null };
+  createdAt: string;
+}
+
+export async function getSentRequests(): Promise<SentRequest[]> {
+  const response = await authorizedFetch('/api/friends/requests/sent');
+  return parseEnvelope<SentRequest[]>(response);
+}
+
 export async function respondFriendRequest(
   requestId: string,
   action: 'accept' | 'reject',

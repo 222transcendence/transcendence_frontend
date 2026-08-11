@@ -10,7 +10,8 @@ import {
   fetchMyProfile,
   getFriends, removeFriend,
   sendFriendRequestByNickname, getPendingRequests, respondFriendRequest,
-  type PendingRequest,
+  getSentRequests,
+  type PendingRequest, type SentRequest,
 } from '../api/client';
 import type { Room } from '../types/lobby';
 import type { Friend } from '../types/friend';
@@ -37,6 +38,7 @@ export default function LobbyPage() {
   // Friends
   const [friends, setFriends] = useState<Friend[]>([]);
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
+  const [sentRequests, setSentRequests] = useState<SentRequest[]>([]);
   const [addNickname, setAddNickname] = useState('');
   const [addMsg, setAddMsg] = useState('');
   const [friendPopup, setFriendPopup] = useState<Friend | null>(null);
@@ -86,6 +88,7 @@ export default function LobbyPage() {
   const loadFriends = useCallback(() => {
     getFriends().then(setFriends).catch(() => {});
     getPendingRequests().then(setPendingRequests).catch(() => {});
+    getSentRequests().then(setSentRequests).catch(() => {});
   }, []);
 
   useEffect(() => { if (tab === 'friends') loadFriends(); }, [tab, loadFriends]);
@@ -106,7 +109,7 @@ export default function LobbyPage() {
 
   const handleAddFriend = async () => {
     if (!addNickname.trim()) return;
-    try { await sendFriendRequestByNickname(addNickname.trim()); setAddMsg('친구 요청을 보냈습니다.'); setAddNickname(''); }
+    try { await sendFriendRequestByNickname(addNickname.trim()); setAddMsg('친구 요청을 보냈습니다.'); setAddNickname(''); getSentRequests().then(setSentRequests).catch(() => {}); }
 	// catch { setAddMsg('요청 실패: 닉네임을 확인해주세요.'); }
 	catch (error) {
 		if (error instanceof Error) {
@@ -193,7 +196,7 @@ export default function LobbyPage() {
         {tab === 'friends' && (
           <div style={{ flex: 1, overflowY: 'auto' as const }}>
             <FriendsTab
-              friends={friends} pendingRequests={pendingRequests}
+              friends={friends} pendingRequests={pendingRequests} sentRequests={sentRequests}
               addNickname={addNickname} addMsg={addMsg}
               onAddNicknameChange={setAddNickname} onAddFriend={handleAddFriend}
               onRespond={handleRespondRequest} onRemove={handleRemoveFriend}
@@ -270,8 +273,8 @@ function LobbyTab({ rooms, isConnecting, connectionError, onCreateRoom, onJoinRo
 
 // ── Friends tab ───────────────────────────────────────────────────────────────
 
-function FriendsTab({ friends, pendingRequests, addNickname, addMsg, onAddNicknameChange, onAddFriend, onRespond, onRemove, onFriendClick }: {
-  friends: Friend[]; pendingRequests: PendingRequest[]; addNickname: string; addMsg: string;
+function FriendsTab({ friends, pendingRequests, sentRequests, addNickname, addMsg, onAddNicknameChange, onAddFriend, onRespond, onRemove, onFriendClick }: {
+  friends: Friend[]; pendingRequests: PendingRequest[]; sentRequests: SentRequest[]; addNickname: string; addMsg: string;
   onAddNicknameChange: (v: string) => void; onAddFriend: () => void;
   onRespond: (id: string, action: 'accept' | 'reject') => void;
   onRemove: (id: string) => void;
@@ -306,6 +309,25 @@ function FriendsTab({ friends, pendingRequests, addNickname, addMsg, onAddNickna
                   <button onClick={() => onRespond(req.id, 'accept')} style={S.primaryBtnSm}>수락</button>
                   <button onClick={() => onRespond(req.id, 'reject')} style={S.dangerBtnSm}>거절</button>
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={S.card}>
+        <div style={S.cardTitle}>보낸 요청 {sentRequests.length > 0 && <span style={{ color: '#5c6a8a', marginLeft: 6 }}>({sentRequests.length})</span>}</div>
+        {sentRequests.length === 0 ? (
+          <div style={{ ...S.cardSub, marginTop: 8 }}>보낸 친구 요청이 없습니다.</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8, marginTop: 10 }}>
+            {sentRequests.map(req => (
+              <div key={req.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ ...S.friendAvatar, backgroundImage: req.receiver.avatar ? `url(${req.receiver.avatar})` : 'none' }} />
+                  <span style={{ fontSize: 13, color: '#c7cede' }}>{req.receiver.nickname}</span>
+                </div>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: '#5c6a8a' }}>대기 중</span>
               </div>
             ))}
           </div>

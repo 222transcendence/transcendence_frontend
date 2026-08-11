@@ -322,7 +322,11 @@ function FriendsTab({ friends, pendingRequests, addNickname, addMsg, onAddNickna
 
 // ── Leaderboard tab ───────────────────────────────────────────────────────────
 
-const MEDAL = ['🥇', '🥈', '🥉'];
+const LB_RANK_META = [
+  { medal: '🥇', borderColor: 'rgba(255,215,0,.25)', bg: 'rgba(255,215,0,.04)', glowColor: '#ffd700' },
+  { medal: '🥈', borderColor: 'rgba(192,192,192,.2)',  bg: 'rgba(192,192,192,.03)', glowColor: '#c0c0c0' },
+  { medal: '🥉', borderColor: 'rgba(205,127,50,.2)',   bg: 'rgba(205,127,50,.04)', glowColor: '#cd7f32' },
+];
 
 function LeaderboardTab({ entries, myUserId }: { entries: LeaderboardEntry[]; myUserId: string }) {
   return (
@@ -331,27 +335,39 @@ function LeaderboardTab({ entries, myUserId }: { entries: LeaderboardEntry[]; my
       {entries.length === 0 ? (
         <div style={S.emptyState}>불러오는 중…</div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8, marginTop: 18 }}>
+        <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 6, marginTop: 18 }}>
           {entries.map((entry, i) => {
             const winPct = Math.round(entry.winRate * 100);
             const isMe = entry.id === myUserId;
+            const meta = LB_RANK_META[i];
             return (
-              <div key={entry.id} style={{ ...S.card, display: 'flex', alignItems: 'center', gap: 14, borderColor: isMe ? 'rgba(18,200,168,.3)' : i === 0 ? 'rgba(255,215,0,.15)' : 'rgba(255,255,255,.06)' }}>
-                <div style={{ width: 28, textAlign: 'center' as const, flex: 'none' as const }}>
-                  {i < 3 ? <span style={{ fontSize: 18 }}>{MEDAL[i]}</span> : <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: '#5c6a8a' }}>#{i + 1}</span>}
+              <div key={entry.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, border: '1px solid', borderColor: isMe ? 'rgba(18,200,168,.3)' : (meta?.borderColor ?? 'rgba(255,255,255,.06)'), background: meta?.bg ?? 'rgba(255,255,255,.015)', boxShadow: i === 0 ? '0 0 18px rgba(255,215,0,.06)' : undefined, transition: 'background .15s' }}>
+                <div style={{ width: 32, textAlign: 'center' as const, flex: 'none' as const }}>
+                  {i < 3 ? <span style={{ fontSize: 18, lineHeight: 1 }}>{meta.medal}</span> : <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#3a4a6a', fontWeight: 700 }}>#{i + 1}</span>}
                 </div>
-                <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#1a2040', backgroundSize: 'cover', backgroundPosition: 'center', backgroundImage: entry.avatar ? `url(${entry.avatar})` : 'none', flex: 'none' as const }} />
-                <Link to={`/stats/${entry.id}`} style={{ flex: 1, color: isMe ? '#12c8a8' : '#c7cede', textDecoration: 'none', fontFamily: "'Inter',sans-serif", fontWeight: 600, fontSize: 14 }}>
-                  {entry.nickname}{isMe && ' (나)'}
-                </Link>
-                <div style={{ width: 80, height: 5, borderRadius: 3, background: '#182236', overflow: 'hidden', flex: 'none' as const }}>
-                  <div style={{ height: '100%', background: 'linear-gradient(90deg,#8b5cf6,#12c8a8)', borderRadius: 3, width: `${winPct}%` }} />
+                <div style={{ width: 34, height: 34, borderRadius: '50%', backgroundSize: 'cover', backgroundPosition: 'center', flex: 'none' as const, border: `1.5px solid ${meta?.glowColor ?? 'rgba(255,255,255,.1)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#111827', backgroundImage: entry.avatar ? `url(${entry.avatar})` : 'none' }}>
+                  {!entry.avatar && <span style={{ fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: 14, color: '#5c6a8a' }}>{entry.nickname[0].toUpperCase()}</span>}
                 </div>
-                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#8a93a8', minWidth: 38, textAlign: 'right' as const }}>{winPct}%</span>
-                <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, minWidth: 72 }}>
-                  <span style={{ color: '#12c8a8', fontWeight: 700 }}>{entry.wins}W</span>
-                  <span style={{ color: '#3a4256', margin: '0 4px' }}>/</span>
-                  <span style={{ color: '#ef4a63', fontWeight: 700 }}>{entry.losses}L</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Link to={`/stats/${entry.id}`} style={{ display: 'block', color: isMe ? '#12c8a8' : '#c7cede', textDecoration: 'none', fontWeight: 600, fontSize: 13, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+                    {entry.nickname}{isMe && ' (나)'}
+                  </Link>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ flex: 1, height: 3, borderRadius: 2, background: '#182236', overflow: 'hidden', maxWidth: 80 }}>
+                      <div style={{ height: '100%', background: 'linear-gradient(90deg,#8b5cf6,#12c8a8)', borderRadius: 2, width: `${winPct}%` }} />
+                    </div>
+                    <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: '#5c6a8a' }}>{winPct}%</span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column' as const, alignItems: 'center', minWidth: 24, gap: 1 }}>
+                    <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 8, color: '#3a4a6a', letterSpacing: '.05em' }}>승</span>
+                    <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, fontWeight: 700, color: '#12c8a8' }}>{entry.wins}</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column' as const, alignItems: 'center', minWidth: 24, gap: 1 }}>
+                    <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 8, color: '#3a4a6a', letterSpacing: '.05em' }}>패</span>
+                    <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, fontWeight: 700, color: '#ef4a63' }}>{entry.losses}</span>
+                  </div>
                 </div>
               </div>
             );

@@ -44,7 +44,11 @@ export default function WaitingRoomPage() {
       }),
       socket.on('ACTION_REJECTED', ({ message }) => {
         // JOIN_ROOM 관련 정상 에러 (host 자신의 방, 이미 IN_GAME 상태) — 무시
-        const ignored = ['Cannot join your own room', 'Room is not in WAITING status', 'Room is already full'];
+        // 'Already in this room': 방을 만든 host 본인 또는 이미 참가한 유저가
+        // 재접속 시 자동으로 보내는 JOIN_ROOM이 거부되는 정상 케이스 (game.service.ts
+        // joinRoom()이 host/guest를 구분하지 않고 players[] 포함 여부로만 판단하므로
+        // 예전 'Cannot join your own room' 메시지 대신 이 문구가 온다)
+        const ignored = ['Cannot join your own room', 'Already in this room', 'Room is not in WAITING status', 'Room is already full'];
         if (isMounted && !ignored.includes(message)) setErrorMessage(message);
       }),
     ];

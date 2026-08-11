@@ -40,7 +40,10 @@ export default function WaitingRoomPage() {
       socket.on('GAME_START', ({ roomId: id }) => {
         if (id === roomId) { isTransitioningToGame = true; navigate(`/game/${roomId}`); }
       }),
-      socket.on('ACTION_REJECTED', ({ message }) => { if (isMounted) setErrorMessage(message); }),
+      socket.on('ACTION_REJECTED', ({ message }) => {
+        // 방 생성자가 JOIN_ROOM 시도 시 발생하는 정상 에러 — 무시
+        if (isMounted && message !== 'Cannot join your own room') setErrorMessage(message);
+      }),
     ];
 
     fetchMyProfile().then(me => { if (isMounted) setMyUserId(me.id); }).catch(() => {});

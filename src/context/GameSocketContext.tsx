@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { ServerToClientEvents, ClientToServerEvents } from '../types/gameSocket';
+import { getValidAccessToken } from '../api/client';
 
 type GameSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -9,14 +10,14 @@ type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
 interface GameSocketContextValue {
   socket: GameSocket | null;
   connectionState: ConnectionState;
-  connect: () => void;
+  connect: () => Promise<void>;
   disconnect: () => void;
 }
 
 const GameSocketContext = createContext<GameSocketContextValue>({
   socket: null,
   connectionState: 'disconnected',
-  connect: () => {},
+  connect: async () => {},
   disconnect: () => {},
 });
 
@@ -32,12 +33,12 @@ export function GameSocketProvider({ children }: { children: React.ReactNode }) 
     }
   };
 
-  const connect = () => {
+  const connect = async () => {
     if (socketRef.current?.connected) return;
     disconnect();
 
-    const token = localStorage.getItem('accessToken') ?? '';
     setConnectionState('connecting');
+    const token = (await getValidAccessToken()) ?? '';
 
     const socket: GameSocket = io('/game', {
       path: '/socketio',

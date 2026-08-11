@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import { LobbySocket } from '../api/lobbySocket';
-import { fetchMyProfile, fetchUserProfile, sendFriendRequest, getFriends } from '../api/client';
+import { fetchMyProfile, fetchUserProfile, sendFriendRequest, getFriends, getValidAccessToken } from '../api/client';
 import type { Room } from '../types/lobby';
 import type { PublicUserProfile } from '../types/user';
 import type { Friend } from '../types/friend';
@@ -64,11 +64,11 @@ export default function WaitingRoomPage() {
       .catch(() => { if (isMounted) { setErrorMessage('로비 서버에 연결할 수 없습니다.'); setIsConnecting(false); } });
 
     // Chat socket for sending invites
-    const token = localStorage.getItem('accessToken');
-    if (token) {
+    getValidAccessToken().then(token => {
+      if (!token || !isMounted) return;
       const chatSocket = io('/chat', { path: '/socketio', auth: { token: `Bearer ${token}` } });
       chatSocketRef.current = chatSocket;
-    }
+    });
 
     return () => {
       isMounted = false;

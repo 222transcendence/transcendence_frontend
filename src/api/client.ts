@@ -14,7 +14,7 @@ async function parseEnvelope<T>(response: Response): Promise<T> {
   return result.data;
 }
 
-async function refreshAccessToken(): Promise<string | null> {
+export async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = localStorage.getItem('refreshToken');
   if (!refreshToken) return null;
   try {
@@ -32,6 +32,35 @@ async function refreshAccessToken(): Promise<string | null> {
     // network error — fall through
   }
   return null;
+}
+
+function decodeJwtExpiryMs(token: string): number | null {
+  try {
+    const payload = token.split('.')[1];
+    const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/'))) as { exp?: number };
+    return typeof json.exp === 'number' ? json.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * WebSocket connect paths need a token that is valid for the lifetime of the
+ * connection, not just at the instant of connecting — authorizedFetch()'s
+ * refresh-on-401 doesn't apply here since sockets don't get a 401 to react to.
+ * Refresh proactively if the current token is missing/expired/near expiry.
+ */
+export async function getValidAccessToken(): Promise<string | null> {
+  const token = localStorage.getItem('accessToken');
+  if (!token) return null;
+
+  const expiryMs = decodeJwtExpiryMs(token);
+  const EXPIRY_BUFFER_MS = 10_000;
+  if (expiryMs !== null && expiryMs - Date.now() > EXPIRY_BUFFER_MS) {
+    return token;
+  }
+
+  return refreshAccessToken();
 }
 
 export async function logout(): Promise<void> {

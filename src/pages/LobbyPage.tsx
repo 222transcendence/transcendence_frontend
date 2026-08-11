@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import { fetchLeaderboard } from '../api/gameStats';
-import { fetchChatHistory } from '../api/client';
+import { fetchChatHistory, getValidAccessToken } from '../api/client';
 import type { LeaderboardEntry } from '../types/gameStats';
 import type { ChatMessage } from '../types/chat';
 import { LobbySocket } from '../api/lobbySocket';
@@ -500,16 +500,19 @@ function GlobalChatPanel({ currentUserId }: { currentUserId: string }) {
   const dragStartH = useRef(0);
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
-    if (!token) return;
-    const socket = io('/chat', { path: '/socketio', auth: { token: `Bearer ${token}` } });
-    socketRef.current = socket;
-    socket.on('connect', async () => {
-      try { const h = await fetchChatHistory(); setMessages(h.filter((m: ChatMessage) => !m.roomId)); } catch { /* ok */ }
-    });
-    socket.on('receive_message', (msg: ChatMessage) => { if (!msg.roomId && msg.type !== 'INVITE') setMessages(prev => [...prev, msg]); });
-    socket.on('connect_error', () => socket.disconnect());
-    return () => { socket.disconnect(); socketRef.current = null; };
+    let cancelled = false;
+    (async () => {
+      const token = await getValidAccessToken();
+      if (!token || cancelled) return;
+      const socket = io('/chat', { path: '/socketio', auth: { token: `Bearer ${token}` } });
+      socketRef.current = socket;
+      socket.on('connect', async () => {
+        try { const h = await fetchChatHistory(); setMessages(h.filter((m: ChatMessage) => !m.roomId)); } catch { /* ok */ }
+      });
+      socket.on('receive_message', (msg: ChatMessage) => { if (!msg.roomId && msg.type !== 'INVITE') setMessages(prev => [...prev, msg]); });
+      socket.on('connect_error', () => socket.disconnect());
+    })();
+    return () => { cancelled = true; socketRef.current?.disconnect(); socketRef.current = null; };
   }, []);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { fetchChatHistory } from '../api/client';
+import { fetchChatHistory, getValidAccessToken } from '../api/client';
 import type { ChatMessage } from '../types/chat';
 
 interface ChatPanelProps {
@@ -22,9 +22,10 @@ export default function ChatPanel({ currentUserId, roomId }: ChatPanelProps) {
 
   useEffect(() => { isOpenRef.current = isOpen; }, [isOpen]);
 
-  const connect = useCallback(() => {
-    const token = localStorage.getItem('accessToken');
-    if (!token || socketRef.current?.connected) return;
+  const connect = useCallback(async () => {
+    if (socketRef.current?.connected) return;
+    const token = await getValidAccessToken();
+    if (!token) return;
 
     const socket = io('/chat', {
       path: '/socketio',

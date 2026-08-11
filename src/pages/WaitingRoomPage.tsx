@@ -234,16 +234,17 @@ export default function WaitingRoomPage() {
                     </div>
                     <button
                       onClick={() => sendInvite(f)}
-                      disabled={invitedIds.has(f.id)}
+                      disabled={f.status !== 'ONLINE' || invitedIds.has(f.id)}
                       style={{
-                        padding: '4px 12px', borderRadius: 6, fontSize: 11, cursor: invitedIds.has(f.id) ? 'default' : 'pointer',
+                        padding: '4px 12px', borderRadius: 6, fontSize: 11,
+                        cursor: (f.status !== 'ONLINE' || invitedIds.has(f.id)) ? 'default' : 'pointer',
                         fontFamily: "'JetBrains Mono',monospace",
-                        border: invitedIds.has(f.id) ? '1px solid rgba(255,255,255,.08)' : '1px solid rgba(18,200,168,.4)',
-                        background: invitedIds.has(f.id) ? 'transparent' : 'rgba(18,200,168,.1)',
-                        color: invitedIds.has(f.id) ? '#3a4256' : '#12c8a8',
+                        border: (f.status !== 'ONLINE' || invitedIds.has(f.id)) ? '1px solid rgba(255,255,255,.08)' : '1px solid rgba(18,200,168,.4)',
+                        background: (f.status !== 'ONLINE' || invitedIds.has(f.id)) ? 'transparent' : 'rgba(18,200,168,.1)',
+                        color: (f.status !== 'ONLINE' || invitedIds.has(f.id)) ? '#3a4256' : '#12c8a8',
                       }}
                     >
-                      {invitedIds.has(f.id) ? '초대됨' : '초대'}
+                      {invitedIds.has(f.id) ? '초대됨' : f.status === 'OFFLINE' ? '오프라인' : f.status === 'IN_GAME' ? '게임 중' : '초대'}
                     </button>
                   </div>
                 ))}

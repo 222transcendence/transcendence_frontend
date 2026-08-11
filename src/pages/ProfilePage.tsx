@@ -225,7 +225,7 @@ export default function ProfilePage() {
 
 const S = {
   topRow: { display: 'flex', alignItems: 'flex-start', gap: 20, marginBottom: 28 },
-  avatar: { width: 72, height: 72, borderRadius: '50%', border: '2px solid rgba(18,200,168,.4)', backgroundSize: 'cover', backgroundPosition: 'center', background: '#1a2040' },
+  avatar: { width: 72, height: 72, borderRadius: '50%', border: '2px solid rgba(18,200,168,.4)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: '#1a2040', overflow: 'hidden' as const },
   editAvatarBtn: { position: 'absolute' as const, bottom: -4, right: -4, width: 24, height: 24, borderRadius: '50%', border: '1px solid rgba(18,200,168,.5)', background: '#0d1220', color: '#12c8a8', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   avatarMenu: { position: 'absolute' as const, top: 80, left: 0, background: '#0d1220', border: '1px solid rgba(255,255,255,.1)', borderRadius: 10, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,.5)', zIndex: 10, minWidth: 130 },
   avatarMenuItem: { display: 'block', width: '100%', padding: '9px 14px', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 as const, fontSize: 13, color: '#c7cede', background: 'transparent', border: 'none', textAlign: 'left' as const, cursor: 'pointer' },

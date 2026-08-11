@@ -339,11 +339,12 @@ function LeaderboardTab({ entries, myUserId }: { entries: LeaderboardEntry[]; my
           {entries.map((entry, i) => {
             const winPct = Math.round(entry.winRate * 100);
             const isMe = entry.id === myUserId;
-            const meta = LB_RANK_META[i];
+            const hasRecord = entry.wins + entry.losses > 0;
+            const meta = hasRecord ? LB_RANK_META[i] : undefined;
             return (
-              <div key={entry.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, border: '1px solid', borderColor: isMe ? 'rgba(18,200,168,.3)' : (meta?.borderColor ?? 'rgba(255,255,255,.06)'), background: meta?.bg ?? 'rgba(255,255,255,.015)', boxShadow: i === 0 ? '0 0 18px rgba(255,215,0,.06)' : undefined, transition: 'background .15s' }}>
+              <div key={entry.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, border: '1px solid', borderColor: isMe ? 'rgba(18,200,168,.3)' : (meta?.borderColor ?? 'rgba(255,255,255,.06)'), background: meta?.bg ?? 'rgba(255,255,255,.015)', boxShadow: hasRecord && i === 0 ? '0 0 18px rgba(255,215,0,.06)' : undefined, transition: 'background .15s' }}>
                 <div style={{ width: 32, textAlign: 'center' as const, flex: 'none' as const }}>
-                  {i < 3 ? <span style={{ fontSize: 18, lineHeight: 1 }}>{meta.medal}</span> : <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#3a4a6a', fontWeight: 700 }}>#{i + 1}</span>}
+                  {!hasRecord ? <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#3a4a6a', fontWeight: 700 }}>-</span> : i < 3 ? <span style={{ fontSize: 18, lineHeight: 1 }}>{meta!.medal}</span> : <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#3a4a6a', fontWeight: 700 }}>#{i + 1}</span>}
                 </div>
                 <div style={{ width: 34, height: 34, borderRadius: '50%', backgroundSize: 'cover', backgroundPosition: 'center', flex: 'none' as const, border: `1.5px solid ${meta?.glowColor ?? 'rgba(255,255,255,.1)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#111827', backgroundImage: entry.avatar ? `url(${entry.avatar})` : 'none' }}>
                   {!entry.avatar && <span style={{ fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: 14, color: '#5c6a8a' }}>{entry.nickname[0].toUpperCase()}</span>}

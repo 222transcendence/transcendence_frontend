@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { fetchMyProfile } from '../api/client';
 import ChatPanel from '../components/ChatPanel';
 import { useAcidRainSocket } from '../hooks/useAcidRainSocket';
+import { useWordFontSize } from '../hooks/useWordFontSize';
 import type { FallingWord, MatchEndData, GamePhase, PlayerPublic, HpPair } from '../types/acidRain';
 
 const MAX_HP = 100;
@@ -71,15 +72,39 @@ export default function GameBoardPage() {
   const wordsRef              = useRef<FallingWord[]>([]);
   wordsRef.current = words;
 
+  // ── Word font size (+/- 키, localStorage 저장) ───────────────────────────────
+  const { fontSize, increase: increaseFontSize, decrease: decreaseFontSize } = useWordFontSize();
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== '+' && e.key !== '-' && e.key !== '=') return;
+      e.preventDefault();
+      if (e.key === '-') decreaseFontSize();
+      else increaseFontSize();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [increaseFontSize, decreaseFontSize]);
+
   // ── Timer ─────────────────────────────────────────────────────────────────
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // 로컬 setInterval 카운터로 1초씩 증가시키면 백그라운드 탭 스로틀링 등으로
+  // 서서히 어긋난다. match_start.now/state_sync.now로 얻은 서버 클록 오프셋과
+  // 서버 기준 매치 시작 시각을 기준으로, 매 tick마다 경과 시간을 다시 계산한다.
+  const timerRef          = useRef<ReturnType<typeof setInterval> | null>(null);
+  const clockOffsetRef    = useRef(0);   // 서버시각 - 로컬시각 (ms)
+  const serverStartAtRef  = useRef(0);   // 서버 기준 매치 시작 시각 (epoch ms)
+
+  const tickElapsed = useCallback(() => {
+    const serverNowMs = Date.now() + clockOffsetRef.current;
+    const elapsedSec = Math.round((serverNowMs - serverStartAtRef.current) / 1000);
+    setElapsed(Math.min(Math.max(elapsedSec, 0), MATCH_DURATION));
+  }, []);
 
   const startTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      setElapsed(e => Math.min(e + 1, MATCH_DURATION));
-    }, 1000);
-  }, []);
+    tickElapsed();
+    timerRef.current = setInterval(tickElapsed, 1000);
+  }, [tickElapsed]);
 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
@@ -121,8 +146,9 @@ export default function GameBoardPage() {
   }, []);
 
   const handleMatchStart = useCallback((startAt: string, now: string, initialHp: number) => {
-    void now;
-    const msUntilStart = Date.parse(startAt) - Date.now();
+    clockOffsetRef.current = Date.parse(now) - Date.now();
+    serverStartAtRef.current = Date.parse(startAt);
+    const msUntilStart = serverStartAtRef.current - (Date.now() + clockOffsetRef.current);
     const startGame = () => {
       setPhase('IN_PROGRESS');
       setMyHp(initialHp); setOppHp(initialHp);
@@ -169,13 +195,15 @@ export default function GameBoardPage() {
   }, []);
 
   const handleStateSync = useCallback((data: Parameters<import('../types/acidRain').AcidRainServerEvents['state_sync']>[0]) => {
-    setElapsed(Math.round(data.elapsedMs / 1000));
-    applyHp(data.hp);
     const clockOffset = Date.parse(data.now) - Date.now();
-    const restored: FallingWord[] = data.activeWords.map(w => ({
-      ...w,
-      animStartAt: Date.parse(w.spawnedAt) + clockOffset,
-    }));
+    clockOffsetRef.current = clockOffset;
+    // 서버 현재시각(now) - 경과시간(elapsedMs) = 서버 기준 매치 시작 시각
+    serverStartAtRef.current = Date.parse(data.now) - data.elapsedMs;
+    applyHp(data.hp);
+    const restored: FallingWord[] = data.activeWords.map(w => {
+      const animStartAt = Date.parse(w.spawnedAt) + clockOffset;
+      return { ...w, animStartAt, renderDelayMs: animStartAt - Date.now() };
+    });
     setWords(restored);
     setPhase('IN_PROGRESS');
     startTimer();
@@ -319,7 +347,9 @@ export default function GameBoardPage() {
                 style={{
                   left: `${(word.lane / 4) * 90}%`,
                   animationDuration: `${word.fallDurationMs}ms`,
-                  animationDelay: '0ms',
+                  // animStartAt이 과거(재접속 복원)면 음수 delay로 애니메이션을 이미 진행된
+                  // 지점으로 점프시켜, 새로 낙하가 시작된 것처럼 보이지 않도록 한다.
+                  animationDelay: `${word.renderDelayMs}ms`,
                   padding: '5px 13px',
                   borderRadius: 8,
                   border: `1px solid ${tierColor[word.tier]}55`,
@@ -327,7 +357,7 @@ export default function GameBoardPage() {
                   color: tierColor[word.tier],
                   fontFamily: "'JetBrains Mono', monospace",
                   fontWeight: 700,
-                  fontSize: 17,
+                  fontSize,
                   whiteSpace: 'nowrap',
                   boxShadow: `0 0 12px ${tierColor[word.tier]}44`,
                   letterSpacing: '.04em',

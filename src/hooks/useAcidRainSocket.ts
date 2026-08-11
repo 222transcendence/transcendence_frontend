@@ -65,6 +65,7 @@ export function useAcidRainSocket(roomId: string, handlers: AcidRainHandlers = {
       const word: FallingWord = {
         ...data,
         animStartAt,
+        renderDelayMs: animStartAt - Date.now(),
       };
       handlersRef.current.onWordSpawn?.(word);
     };

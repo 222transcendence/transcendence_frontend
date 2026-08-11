@@ -113,10 +113,17 @@ export default function StatsPage() {
                 const isHost = m.hostUser.id === resolvedUserId;
                 const opponent = isHost ? m.guestUser : m.hostUser;
                 const won = m.winner?.id === resolvedUserId;
+                const result: 'WIN' | 'LOSS' | 'DRAW' = !m.winner ? 'DRAW' : won ? 'WIN' : 'LOSS';
+                const resultStyle =
+                  result === 'WIN'
+                    ? { background: 'rgba(18,200,168,.12)', color: '#12c8a8' }
+                    : result === 'LOSS'
+                      ? { background: 'rgba(239,74,99,.12)', color: '#ef4a63' }
+                      : { background: 'rgba(139,92,246,.12)', color: '#8b5cf6' };
                 return (
                   <div key={m.id} style={{ ...S.matchRow, borderColor: won ? 'rgba(18,200,168,.15)' : 'rgba(239,74,99,.12)' }}>
-                    <span style={{ ...S.matchBadge, background: won ? 'rgba(18,200,168,.12)' : 'rgba(239,74,99,.12)', color: won ? '#12c8a8' : '#ef4a63' }}>
-                      {m.winner ? (won ? 'WIN' : 'LOSS') : 'DRAW'}
+                    <span style={{ ...S.matchBadge, ...resultStyle }}>
+                      {result}
                     </span>
                     <span style={{ flex: 1, fontSize: 13, color: '#c7cede' }}>
                       vs{' '}

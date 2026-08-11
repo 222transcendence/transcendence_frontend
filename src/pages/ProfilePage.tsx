@@ -7,6 +7,7 @@ import {
 } from '../api/client';
 import type { PublicUserProfile, UserProfile } from '../types/user';
 import PageLayout from '../components/PageLayout';
+import { useWordFontSize, WORD_FONT_SIZE_MIN, WORD_FONT_SIZE_MAX } from '../hooks/useWordFontSize';
 
 // Default avatar pool — shown when no avatar set
 const DEFAULT_AVATARS = [
@@ -219,7 +220,39 @@ export default function ProfilePage() {
       <div style={{ marginTop: 20 }}>
         <Link to={`/stats${id ? `/${id}` : `/${me?.id ?? ''}`}`} style={S.statsLink}>전체 전적 기록 보기 →</Link>
       </div>
+
+      {isOwnProfile && <GameSettingsSection />}
     </PageLayout>
+  );
+}
+
+// ── Game settings (word font size) ───────────────────────────────────────────
+function GameSettingsSection() {
+  const { fontSize, increase, decrease } = useWordFontSize();
+  return (
+    <div style={S.settingsSection}>
+      <div style={S.settingsTitle}>게임 설정</div>
+      <div style={S.settingsRow}>
+        <span style={S.settingsLabel}>단어 글자 크기 (게임 중 +/- 키로도 조절 가능)</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            onClick={decrease}
+            disabled={fontSize <= WORD_FONT_SIZE_MIN}
+            style={S.fontSizeBtn}
+          >
+            −
+          </button>
+          <span style={S.fontSizeValue}>{fontSize}px</span>
+          <button
+            onClick={increase}
+            disabled={fontSize >= WORD_FONT_SIZE_MAX}
+            style={S.fontSizeBtn}
+          >
+            +
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -244,4 +277,10 @@ const S = {
   statValue: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 32 },
   statsLink: { fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#12c8a8', textDecoration: 'none' },
   errorBox: { background: 'rgba(239,74,99,.1)', border: '1px solid rgba(239,74,99,.3)', borderRadius: 10, padding: '10px 14px', color: '#ef4a63', fontFamily: "'JetBrains Mono',monospace", fontSize: 12, marginBottom: 16 },
+  settingsSection: { marginTop: 28, background: '#0d1220', border: '1px solid rgba(255,255,255,.07)', borderRadius: 12, padding: '16px 18px' },
+  settingsTitle: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 15, color: '#e2e8f5', marginBottom: 12 },
+  settingsRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  settingsLabel: { fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#8a93a8' },
+  fontSizeBtn: { width: 26, height: 26, borderRadius: 6, border: '1px solid rgba(255,255,255,.12)', background: 'rgba(255,255,255,.03)', color: '#c7cede', fontSize: 14, fontWeight: 700 as const, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  fontSizeValue: { fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: '#12c8a8', minWidth: 34, textAlign: 'center' as const },
 } as const;

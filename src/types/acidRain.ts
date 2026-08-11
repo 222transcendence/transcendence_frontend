@@ -36,6 +36,8 @@ export interface FallingWord {
   spawnedAt: string;
   /** 클라이언트가 보정 후 계산한 애니메이션 시작 epoch (ms) */
   animStartAt: number;
+  /** word가 state에 추가되는 시점(이벤트 핸들러) 기준으로 미리 계산한 CSS animation-delay(ms) — render에서 Date.now() 호출을 피하기 위함 */
+  renderDelayMs: number;
 }
 
 export interface PlayerRank {

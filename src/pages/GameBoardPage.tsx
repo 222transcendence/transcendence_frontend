@@ -3,10 +3,18 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { fetchMyProfile } from '../api/client';
 import ChatPanel from '../components/ChatPanel';
 import { useAcidRainSocket } from '../hooks/useAcidRainSocket';
-import type { FallingWord, MatchEndData, GamePhase, PlayerPublic, HpPair } from '../types/acidRain';
+import { useWordFontSize } from '../hooks/useWordFontSize';
+import type { FallingWord, MatchEndData, GamePhase, PlayerState, PlayerHpUpdate } from '../types/acidRain';
 
 const MAX_HP = 100;
 const MATCH_DURATION = 180;
+
+// ── 낙하 단어 색상 — keystrokes 구간 기준 (GAME_DESIGN.md §3.2 LOW/MID/HIGH) ───
+function keystrokeColor(keystrokes: number) {
+  if (keystrokes <= 5) return '#12c8a8';
+  if (keystrokes <= 9) return '#eab308';
+  return '#ef4a63';
+}
 
 // ── Word falling animation injected once ─────────────────────────────────────
 const styleId = 'acid-rain-keyframes';
@@ -23,9 +31,6 @@ if (!document.getElementById(styleId)) {
   `;
   document.head.appendChild(style);
 }
-
-// ── Tier color ────────────────────────────────────────────────────────────────
-const tierColor = { easy: '#12c8a8', medium: '#eab308', hard: '#ef4a63' };
 
 // ── HP bar color based on remaining % ────────────────────────────────────────
 function hpColor(pct: number) {
@@ -48,8 +53,8 @@ export default function GameBoardPage() {
   // ── Identity ─────────────────────────────────────────────────────────────
   const [myNickname, setMyNickname] = useState('');
   const [opponentNickname, setOpponentNickname] = useState('');
-  const myUserIdRef   = useRef('');
-  const isHostRef     = useRef(false);
+  const myUserIdRef      = useRef('');
+  const opponentUserIdRef = useRef('');
 
   // ── Game state ────────────────────────────────────────────────────────────
   const [phase, setPhase]         = useState<GamePhase>('WAITING');
@@ -71,15 +76,39 @@ export default function GameBoardPage() {
   const wordsRef              = useRef<FallingWord[]>([]);
   wordsRef.current = words;
 
+  // ── Word font size (+/- 키, localStorage 저장) ───────────────────────────────
+  const { fontSize, increase: increaseFontSize, decrease: decreaseFontSize } = useWordFontSize();
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== '+' && e.key !== '-' && e.key !== '=') return;
+      e.preventDefault();
+      if (e.key === '-') decreaseFontSize();
+      else increaseFontSize();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [increaseFontSize, decreaseFontSize]);
+
   // ── Timer ─────────────────────────────────────────────────────────────────
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // 로컬 setInterval 카운터로 1초씩 증가시키면 백그라운드 탭 스로틀링 등으로
+  // 서서히 어긋난다. match_start.now/state_sync.now로 얻은 서버 클록 오프셋과
+  // 서버 기준 매치 시작 시각을 기준으로, 매 tick마다 경과 시간을 다시 계산한다.
+  const timerRef          = useRef<ReturnType<typeof setInterval> | null>(null);
+  const clockOffsetRef    = useRef(0);   // 서버시각 - 로컬시각 (ms)
+  const serverStartAtRef  = useRef(0);   // 서버 기준 매치 시작 시각 (epoch ms)
+
+  const tickElapsed = useCallback(() => {
+    const serverNowMs = Date.now() + clockOffsetRef.current;
+    const elapsedSec = Math.round((serverNowMs - serverStartAtRef.current) / 1000);
+    setElapsed(Math.min(Math.max(elapsedSec, 0), MATCH_DURATION));
+  }, []);
 
   const startTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      setElapsed(e => Math.min(e + 1, MATCH_DURATION));
-    }, 1000);
-  }, []);
+    tickElapsed();
+    timerRef.current = setInterval(tickElapsed, 1000);
+  }, [tickElapsed]);
 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
@@ -103,26 +132,31 @@ export default function GameBoardPage() {
 
   // ── Socket handlers ───────────────────────────────────────────────────────
 
-  const applyHp = useCallback((hp: HpPair) => {
-    if (isHostRef.current) { setMyHp(hp.host); setOppHp(hp.guest); }
-    else                   { setMyHp(hp.guest); setOppHp(hp.host); }
+  // N인 프로토콜(hpUpdates)을 받지만, 현재 UI는 1:1(나 vs 상대) 렌더링만 지원한다
+  // — N인 HP 바 UI는 별도 이슈(#49)에서 다룬다. 내가 아닌 첫 번째 갱신을 "상대"로 취급.
+  const applyHpUpdates = useCallback((updates: PlayerHpUpdate[]) => {
+    const myId = myUserIdRef.current;
+    for (const u of updates) {
+      if (u.userId === myId) setMyHp(u.hp);
+      else setOppHp(u.hp);
+    }
   }, []);
 
-  const handleMatchReady = useCallback((players: { host: PlayerPublic; guest: PlayerPublic }) => {
-    // 상대방 닉네임 결정 — match_ready 시점에 players 정보 수신
+  const handleMatchReady = useCallback((players: PlayerState[]) => {
     setPhase('COUNTDOWN');
     setCountdown(3);
-    // isHost는 match_start의 startAt/now 기준으로 최종 확정하지만
-    // 여기서 players로 미리 결정 가능
     const myId = myUserIdRef.current;
-    isHostRef.current = players.host.userId === myId;
-    const oppNick = isHostRef.current ? players.guest.nickname : players.host.nickname;
-    setOpponentNickname(oppNick);
+    const opponent = players.find(p => p.userId !== myId);
+    if (opponent) {
+      opponentUserIdRef.current = opponent.userId;
+      setOpponentNickname(opponent.nickname);
+    }
   }, []);
 
   const handleMatchStart = useCallback((startAt: string, now: string, initialHp: number) => {
-    void now;
-    const msUntilStart = Date.parse(startAt) - Date.now();
+    clockOffsetRef.current = Date.parse(now) - Date.now();
+    serverStartAtRef.current = Date.parse(startAt);
+    const msUntilStart = serverStartAtRef.current - (Date.now() + clockOffsetRef.current);
     const startGame = () => {
       setPhase('IN_PROGRESS');
       setMyHp(initialHp); setOppHp(initialHp);
@@ -138,23 +172,23 @@ export default function GameBoardPage() {
     setWords(prev => [...prev, word]);
   }, []);
 
-  const handleWordCleared = useCallback((wordId: string, clearedBy: string, _damage: number, targetHp: HpPair) => {
+  const handleWordCleared = useCallback((wordId: string, clearedBy: string, _damage: number, hpUpdates: PlayerHpUpdate[]) => {
     setMatchedIds(prev => new Set([...prev, wordId]));
     setTimeout(() => {
       setWords(prev => prev.filter(w => w.wordId !== wordId));
       setMatchedIds(prev => { const n = new Set(prev); n.delete(wordId); return n; });
     }, 300);
-    applyHp(targetHp);
+    applyHpUpdates(hpUpdates);
     if (clearedBy !== myUserIdRef.current) flashHit('my');
     else flashHit('opp');
-  }, [applyHp, flashHit]);
+  }, [applyHpUpdates, flashHit]);
 
-  const handleWordMissed = useCallback((_wordId: string, _splashDamage: number, targetHp: HpPair) => {
+  const handleWordMissed = useCallback((_wordId: string, _splashDamage: number, hpUpdates: PlayerHpUpdate[]) => {
     setWords(prev => prev.filter(w => w.wordId !== _wordId));
-    applyHp(targetHp);
+    applyHpUpdates(hpUpdates);
     flashHit('my');
     flashHit('opp');
-  }, [applyHp, flashHit]);
+  }, [applyHpUpdates, flashHit]);
 
   const handleMatchEnd = useCallback((data: MatchEndData) => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -169,17 +203,23 @@ export default function GameBoardPage() {
   }, []);
 
   const handleStateSync = useCallback((data: Parameters<import('../types/acidRain').AcidRainServerEvents['state_sync']>[0]) => {
-    setElapsed(Math.round(data.elapsedMs / 1000));
-    applyHp(data.hp);
     const clockOffset = Date.parse(data.now) - Date.now();
-    const restored: FallingWord[] = data.activeWords.map(w => ({
-      ...w,
-      animStartAt: Date.parse(w.spawnedAt) + clockOffset,
-    }));
+    clockOffsetRef.current = clockOffset;
+    // 서버 현재시각(now) - 경과시간(elapsedMs) = 서버 기준 매치 시작 시각
+    serverStartAtRef.current = Date.parse(data.now) - data.elapsedMs;
+    const myId = myUserIdRef.current;
+    for (const p of data.players) {
+      if (p.userId === myId) setMyHp(p.hp);
+      else { setOppHp(p.hp); opponentUserIdRef.current = p.userId; setOpponentNickname(p.nickname); }
+    }
+    const restored: FallingWord[] = data.activeWords.map(w => {
+      const animStartAt = Date.parse(w.spawnedAt) + clockOffset;
+      return { ...w, animStartAt, renderDelayMs: animStartAt - Date.now() };
+    });
     setWords(restored);
     setPhase('IN_PROGRESS');
     startTimer();
-  }, [applyHp, startTimer]);
+  }, [startTimer]);
 
   const { connectionState, submitWord } = useAcidRainSocket(roomId ?? '', {
     onMatchReady: handleMatchReady,
@@ -210,8 +250,13 @@ export default function GameBoardPage() {
 
   // ── End modal ─────────────────────────────────────────────────────────────
   if (endData) {
-    const myWords  = isHostRef.current ? endData.wordsTyped.host : endData.wordsTyped.guest;
-    const oppWords = isHostRef.current ? endData.wordsTyped.guest : endData.wordsTyped.host;
+    const myId = myUserIdRef.current;
+    const myRankEntry = endData.ranking.find(r => r.userId === myId);
+    const oppRankEntry = endData.ranking.find(r => r.userId !== myId);
+    const myFinalHp = myRankEntry?.finalHp ?? myHp;
+    const oppFinalHp = oppRankEntry?.finalHp ?? oppHp;
+    const myWords  = endData.wordsTyped?.[myId] ?? 0;
+    const oppWords = oppRankEntry ? (endData.wordsTyped?.[oppRankEntry.userId] ?? 0) : 0;
     return (
       <div style={S.page}>
         <div style={S.endOverlay}>
@@ -227,9 +272,9 @@ export default function GameBoardPage() {
             <div style={S.endStats}>
               <div style={S.endStatRow}>
                 <span style={S.endStatLabel}>최종 HP</span>
-                <span style={{ color: '#12c8a8' }}>{myHp}</span>
+                <span style={{ color: '#12c8a8' }}>{myFinalHp}</span>
                 <span style={S.endStatSep}>vs</span>
-                <span style={{ color: '#ef4a63' }}>{oppHp}</span>
+                <span style={{ color: '#ef4a63' }}>{oppFinalHp}</span>
               </div>
               <div style={S.endStatRow}>
                 <span style={S.endStatLabel}>입력한 단어</span>
@@ -319,17 +364,19 @@ export default function GameBoardPage() {
                 style={{
                   left: `${(word.lane / 4) * 90}%`,
                   animationDuration: `${word.fallDurationMs}ms`,
-                  animationDelay: '0ms',
+                  // animStartAt이 과거(재접속 복원)면 음수 delay로 애니메이션을 이미 진행된
+                  // 지점으로 점프시켜, 새로 낙하가 시작된 것처럼 보이지 않도록 한다.
+                  animationDelay: `${word.renderDelayMs}ms`,
                   padding: '5px 13px',
                   borderRadius: 8,
-                  border: `1px solid ${tierColor[word.tier]}55`,
-                  background: `${tierColor[word.tier]}14`,
-                  color: tierColor[word.tier],
+                  border: `1px solid ${keystrokeColor(word.keystrokes)}55`,
+                  background: `${keystrokeColor(word.keystrokes)}14`,
+                  color: keystrokeColor(word.keystrokes),
                   fontFamily: "'JetBrains Mono', monospace",
                   fontWeight: 700,
-                  fontSize: 17,
+                  fontSize,
                   whiteSpace: 'nowrap',
-                  boxShadow: `0 0 12px ${tierColor[word.tier]}44`,
+                  boxShadow: `0 0 12px ${keystrokeColor(word.keystrokes)}44`,
                   letterSpacing: '.04em',
                   opacity: 1,
                 } as React.CSSProperties}

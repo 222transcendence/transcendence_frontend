@@ -61,7 +61,12 @@ export function useAcidRainSocket(roomId: string, handlers: AcidRainHandlers = {
     const onWordSpawn = (data: Parameters<AcidRainServerEvents['word_spawn']>[0]) => {
       const serverSpawnMs = Date.parse(data.spawnedAt);
       const animStartAt = serverSpawnMs + clockOffsetRef.current;
-      const word: FallingWord = { ...data, animStartAt };
+
+      const word: FallingWord = {
+        ...data,
+        animStartAt,
+        renderDelayMs: animStartAt - Date.now(),
+      };
       handlersRef.current.onWordSpawn?.(word);
     };
 

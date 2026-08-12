@@ -137,8 +137,7 @@ export default function GameBoardPage() {
 
   const applyHp = useCallback((hp: HpByParticipantId) => {
     setPlayers(prev => prev.map(p => (p.participantId in hp ? { ...p, hp: hp[p.participantId] } : p)));
-    Object.keys(hp).forEach(flashHit);
-  }, [flashHit]);
+  }, []);
 
   const handleMatchReady = useCallback((participants: ParticipantState[]) => {
     setPhase('COUNTDOWN');
@@ -165,19 +164,25 @@ export default function GameBoardPage() {
     setWords(prev => [...prev, word]);
   }, []);
 
-  const handleWordCleared = useCallback((wordId: string, _clearedBy: string, _targetParticipantId: string, _damage: number, hp: HpByParticipantId) => {
+  const handleWordCleared = useCallback((wordId: string, _clearedBy: string, targetParticipantId: string, _damage: number, hp: HpByParticipantId) => {
     setMatchedIds(prev => new Set([...prev, wordId]));
     setTimeout(() => {
       setWords(prev => prev.filter(w => w.wordId !== wordId));
       setMatchedIds(prev => { const n = new Set(prev); n.delete(wordId); return n; });
     }, 300);
     applyHp(hp);
-  }, [applyHp]);
+    // 실제로 맞은 대상 한 명만 하이라이팅한다 — hp 맵은 전원의 최신 HP를 담고 있을 뿐,
+    // hp 맵의 키 전체가 이번에 데미지를 받은 대상이라는 뜻이 아니다.
+    flashHit(targetParticipantId);
+  }, [applyHp, flashHit]);
 
   const handleWordMissed = useCallback((_wordId: string, _splashDamage: number, hp: HpByParticipantId) => {
     setWords(prev => prev.filter(w => w.wordId !== _wordId));
     applyHp(hp);
-  }, [applyHp]);
+    // 스플래시 데미지는 생존자 전원에게 적용되므로(GAME_DESIGN.md §3.6), 이 경우엔
+    // 전원 하이라이팅이 맞다.
+    Object.keys(hp).forEach(flashHit);
+  }, [applyHp, flashHit]);
 
   const handlePlayerEliminated = useCallback((userId: string, rank: number, finalHp: number) => {
     setPlayers(prev => prev.map(p => p.participantId === userId ? { ...p, hp: finalHp, rank } : p));

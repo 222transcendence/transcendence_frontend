@@ -110,8 +110,16 @@ export default function StatsPage() {
           <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {history.map(m => {
-                const isHost = m.hostUser?.id === resolvedUserId;
-                const opponent = isHost ? m.guestUser : m.hostUser;
+                // N인 매치(backend#157)는 participants[]에 전원이 들어있다 — hostUser/
+                // guestUser만 보면 3~4인 매치에서 상대가 한 명만(그것도 방장) 보인다.
+                const otherParticipants = m.participants
+                  .filter(p => p.user && p.user.id !== resolvedUserId)
+                  .map(p => p.user!);
+                const opponents = otherParticipants.length > 0
+                  ? otherParticipants
+                  : [m.hostUser?.id === resolvedUserId ? m.guestUser : m.hostUser].filter(
+                      (u): u is { id: string; nickname: string; avatar: string } => u != null,
+                    );
                 const won = m.winner?.id === resolvedUserId;
                 const result: 'WIN' | 'LOSS' | 'DRAW' = !m.winner ? 'DRAW' : won ? 'WIN' : 'LOSS';
                 const resultStyle =
@@ -127,8 +135,13 @@ export default function StatsPage() {
                     </span>
                     <span style={{ flex: 1, fontSize: 13, color: '#c7cede' }}>
                       vs{' '}
-                      {opponent ? (
-                        <Link to={`/stats/${opponent.id}`} style={{ color: '#12c8a8', textDecoration: 'none' }}>{opponent.nickname}</Link>
+                      {opponents.length > 0 ? (
+                        opponents.map((opponent, index) => (
+                          <span key={opponent.id}>
+                            {index > 0 && ', '}
+                            <Link to={`/stats/${opponent.id}`} style={{ color: '#12c8a8', textDecoration: 'none' }}>{opponent.nickname}</Link>
+                          </span>
+                        ))
                       ) : (
                         <span style={{ color: '#8a93a8' }}>AI</span>
                       )}

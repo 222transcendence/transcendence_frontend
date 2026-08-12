@@ -133,7 +133,9 @@ export interface AcidRainServerEvents {
   /** 상대방 실시간 입력 진행도 — partialText가 빈 문자열이면 초기화 (#71) */
   opponent_typing: (data: { participantId: string; partialText: string }) => void;
 
-  opponent_disconnected: (data: { userId: string; graceMs: number }) => void;
+  /** 강제 탈락/승리 처리 데드라인은 없다 — 언제든 재접속 가능하고, 매치 자체에 이미
+   *  하드 타임아웃이 있다(backend#161) */
+  opponent_disconnected: (data: { userId: string }) => void;
   opponent_reconnected:  (data: { userId: string }) => void;
   match_end:             (data: MatchEndData) => void;
   error:                 (data: { message: string }) => void;

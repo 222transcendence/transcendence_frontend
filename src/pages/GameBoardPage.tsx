@@ -234,18 +234,24 @@ export default function GameBoardPage() {
     }, []),
   });
 
-  // ── Input submit: find matching word ─────────────────────────────────────
+  // ── Input submit: 엔터 키로 제출 (#86) ──────────────────────────────────
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setInput(val);
     sendTypingProgress(val);
+  }, [sendTypingProgress]);
+
+  const handleInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return;
+    const val = input.trim();
+    if (!val) return;
     const match = wordsRef.current.find(w => w.text === val && !matchedIds.has(w.wordId));
     if (match) {
-      setInput('');
-      sendTypingProgress('');
       submitWord(match.wordId, match.text);
     }
-  }, [matchedIds, submitWord, sendTypingProgress]);
+    setInput('');
+    sendTypingProgress('');
+  }, [input, matchedIds, submitWord, sendTypingProgress]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const myId = myUserIdRef.current;
@@ -463,6 +469,7 @@ export default function GameBoardPage() {
               ref={inputRef}
               value={input}
               onChange={handleInputChange}
+              onKeyDown={handleInputKeyDown}
               disabled={phase !== 'IN_PROGRESS'}
               placeholder={phase === 'IN_PROGRESS' ? '단어를 입력하세요…' : ''}
               style={{

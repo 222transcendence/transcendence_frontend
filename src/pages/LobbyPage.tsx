@@ -13,7 +13,7 @@ import {
   getSentRequests,
   type PendingRequest, type SentRequest,
 } from '../api/client';
-import type { Room } from '../types/lobby';
+import type { Room, AiDifficulty } from '../types/lobby';
 import type { Friend } from '../types/friend';
 
 type Tab = 'lobby' | 'friends' | 'leaderboard';
@@ -238,7 +238,11 @@ export default function LobbyPage() {
         <FriendProfilePopup friend={friendPopup} friendIds={friends.map(f => f.id)} onClose={() => setFriendPopup(null)} />
       )}
       {showAiModal && (
-        <AiDifficultyModal onClose={() => setShowAiModal(false)} />
+        <AiDifficultyModal
+          onClose={() => setShowAiModal(false)}
+          socket={socketRef.current}
+          navigate={navigate}
+        />
       )}
     </div>
   );
@@ -483,22 +487,46 @@ function FriendProfilePopup({ friend, friendIds, onClose }: { friend: Friend; fr
 
 // ── AI 실력 선택 (AI_OPPONENT_SPEC.md §4.2) ─────────────────────────────────────
 
-type AiDifficulty = 'BEGINNER' | 'NORMAL' | 'HARD';
-
 const AI_DIFFICULTY_CARDS: { key: AiDifficulty; label: string; desc: string }[] = [
   { key: 'BEGINNER', label: 'Beginner', desc: '반응이 느리고 실수가 많아요' },
   { key: 'NORMAL', label: 'Normal', desc: '평균적인 속도와 정확도로 플레이해요' },
   { key: 'HARD', label: 'Hard', desc: '빠르고 정확하지만 가끔 실수해요' },
 ];
 
-function AiDifficultyModal({ onClose }: { onClose: () => void }) {
+function AiDifficultyModal({
+  onClose,
+  socket,
+  navigate,
+}: {
+  onClose: () => void;
+  socket: import('../api/lobbySocket').LobbySocket | null;
+  navigate: ReturnType<typeof useNavigate>;
+}) {
   const [difficulty, setDifficulty] = useState<AiDifficulty>('NORMAL');
-  const [starting, setStarting] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleStart = () => {
-    // 백엔드 AI 대전 세션 생성(CREATE_AI_PRACTICE)이 아직 구현되지 않음 (backend#80).
-    // 구현되면 이 핸들러에서 로비 소켓으로 요청을 보내고 AI_PRACTICE_CREATED 응답을 기다리도록 교체.
-    setStarting(true);
+    if (!socket || loading) return;
+    setLoading(true);
+    setError('');
+
+    const requestId = crypto.randomUUID();
+
+    const unsubCreated = socket.on('AI_PRACTICE_CREATED', (payload) => {
+      unsubCreated();
+      unsubRejected();
+      navigate(`/game/${payload.roomId}`);
+    });
+
+    const unsubRejected = socket.on('AI_PRACTICE_REJECTED', (payload) => {
+      unsubCreated();
+      unsubRejected();
+      setLoading(false);
+      setError(payload.message || 'AI 대전 세션 생성에 실패했습니다.');
+    });
+
+    socket.send('CREATE_AI_PRACTICE', { requestId, difficulty });
   };
 
   return (
@@ -513,9 +541,10 @@ function AiDifficultyModal({ onClose }: { onClose: () => void }) {
             return (
               <button
                 key={c.key}
-                onClick={() => setDifficulty(c.key)}
-                style={{ ...AS.card, ...(selected ? AS.cardSelected : {}) }}
+                onClick={() => { if (!loading) setDifficulty(c.key); }}
+                style={{ ...AS.card, ...(selected ? AS.cardSelected : {}), ...(loading ? { opacity: 0.6, cursor: 'not-allowed' } : {}) }}
                 aria-pressed={selected}
+                disabled={loading}
               >
                 <div style={AS.cardLabelRow}>
                   <span style={AS.cardLabel}>{c.label}</span>
@@ -529,12 +558,16 @@ function AiDifficultyModal({ onClose }: { onClose: () => void }) {
 
         <div style={AS.notice}>AI 대전 결과는 PvP 랭킹에 반영되지 않습니다.</div>
 
-        {starting ? (
-          <div style={AS.comingSoon}>AI 대전 기능은 아직 준비 중입니다. 곧 만나보실 수 있어요!</div>
-        ) : (
-          <button onClick={handleStart} style={{ ...S.primaryBtn, width: '100%', padding: '10px 0' }}>AI 대전 시작</button>
-        )}
-        <button onClick={onClose} style={{ ...S.ghostBtn, width: '100%', marginTop: 8 }}>닫기</button>
+        {error && <div style={AS.errorMsg}>{error}</div>}
+
+        <button
+          onClick={handleStart}
+          disabled={loading}
+          style={{ ...S.primaryBtn, width: '100%', padding: '10px 0', opacity: loading ? 0.6 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
+        >
+          {loading ? '연결 중…' : 'AI 대전 시작'}
+        </button>
+        <button onClick={onClose} disabled={loading} style={{ ...S.ghostBtn, width: '100%', marginTop: 8, opacity: loading ? 0.4 : 1 }}>닫기</button>
       </div>
     </div>
   );
@@ -553,7 +586,7 @@ const AS = {
   cardCheck: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 13, color: '#12c8a8' },
   cardDesc: { fontFamily: "'Inter',sans-serif", fontSize: 10.5, color: '#8a93a8', lineHeight: 1.4 },
   notice: { fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: '#5c6a8a', textAlign: 'center' as const, marginBottom: 14 },
-  comingSoon: { fontFamily: "'JetBrains Mono',monospace", fontSize: 11.5, color: '#eab308', textAlign: 'center' as const, background: 'rgba(234,179,8,.08)', border: '1px solid rgba(234,179,8,.3)', borderRadius: 8, padding: '10px 8px' },
+  errorMsg: { fontFamily: "'JetBrains Mono',monospace", fontSize: 11.5, color: '#f87171', textAlign: 'center' as const, background: 'rgba(248,113,113,.08)', border: '1px solid rgba(248,113,113,.3)', borderRadius: 8, padding: '10px 8px', marginBottom: 12 },
 } as const;
 
 // ── Global chat ───────────────────────────────────────────────────────────────

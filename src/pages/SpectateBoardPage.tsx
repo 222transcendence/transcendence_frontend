@@ -71,6 +71,7 @@ export default function SpectateBoardPage() {
   const [disconnectGrace, setDisconnectGrace] = useState<number | null>(null);
   const [flashByParticipantId, setFlashByParticipantId] = useState<Record<string, boolean>>({});
   const [notSpectatable, setNotSpectatable] = useState(false);
+  const [opponentTyping, setOpponentTyping] = useState<Record<string, string>>({});
 
   const { fontSize } = useWordFontSize();
 
@@ -205,6 +206,9 @@ export default function SpectateBoardPage() {
       onOpponentDisconnected: handleOpponentDisconnected,
       onOpponentReconnected: handleOpponentReconnected,
       onStateSync: handleStateSync,
+      onOpponentTyping: useCallback((participantId: string, partialText: string) => {
+        setOpponentTyping(prev => ({ ...prev, [participantId]: partialText }));
+      }, []),
     },
     'spectator',
   );
@@ -296,6 +300,16 @@ export default function SpectateBoardPage() {
                     </div>
                     <span style={S.hpNum}>{p.hp} / {MAX_HP}</span>
                   </div>
+                  {/* 실시간 입력 진행도 (#85) */}
+                  {phase === 'IN_PROGRESS' && (() => {
+                    const partial = opponentTyping[p.participantId] ?? '';
+                    if (!partial) return null;
+                    return (
+                      <div style={{ marginTop: 4, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#12c8a8', opacity: 0.85, letterSpacing: 0.5 }}>
+                        {partial}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             );

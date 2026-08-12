@@ -71,7 +71,8 @@ export default function GameBoardPage() {
   const [words, setWords]         = useState<FallingWord[]>([]);
   const [matchedIds, setMatchedIds] = useState<Set<string>>(new Set());
   const [endData, setEndData]     = useState<(MatchEndData & { isWinner: boolean }) | null>(null);
-  const [disconnectGrace, setDisconnectGrace] = useState<number | null>(null);
+  // 강제 탈락/승리 처리 데드라인은 없다 — 그냥 정보성 배너다(backend#161).
+  const [disconnectedOpponent, setDisconnectedOpponent] = useState(false);
   const [leaveConfirm, setLeaveConfirm] = useState(false);
   const [flashByUserId, setFlashByUserId] = useState<Record<string, boolean>>({});
   const [inputError, setInputError] = useState(false);
@@ -204,8 +205,12 @@ export default function GameBoardPage() {
     setEndData({ ...data, isWinner });
   }, []);
 
-  const handleOpponentDisconnected = useCallback((_userId: string, graceMs: number) => {
-    setDisconnectGrace(Math.ceil(graceMs / 1000));
+  const handleOpponentDisconnected = useCallback(() => {
+    setDisconnectedOpponent(true);
+  }, []);
+
+  const handleOpponentReconnected = useCallback(() => {
+    setDisconnectedOpponent(false);
   }, []);
 
   const handleStateSync = useCallback((data: Parameters<import('../types/acidRain').AcidRainServerEvents['state_sync']>[0]) => {
@@ -233,6 +238,7 @@ export default function GameBoardPage() {
     onSubmitRejected: handleSubmitRejected,
     onMatchEnd: handleMatchEnd,
     onOpponentDisconnected: handleOpponentDisconnected,
+    onOpponentReconnected: handleOpponentReconnected,
     onStateSync: handleStateSync,
     onOpponentTyping: useCallback((participantId: string, partialText: string) => {
       setOpponentTyping(prev => ({ ...prev, [participantId]: partialText }));
@@ -441,9 +447,9 @@ export default function GameBoardPage() {
             ))}
 
             {/* Disconnect notice */}
-            {disconnectGrace !== null && (
+            {disconnectedOpponent && (
               <div style={S.disconnectBanner}>
-                상대방이 연결이 끊겼습니다. {disconnectGrace}초 내 재접속하지 않으면 승리 처리됩니다.
+                상대방의 연결이 끊겼습니다. 재접속을 기다리는 중입니다.
               </div>
             )}
           </div>

@@ -68,7 +68,8 @@ export default function SpectateBoardPage() {
   const [words, setWords]         = useState<FallingWord[]>([]);
   const [matchedIds, setMatchedIds] = useState<Set<string>>(new Set());
   const [endData, setEndData]     = useState<MatchEndData | null>(null);
-  const [disconnectGrace, setDisconnectGrace] = useState<number | null>(null);
+  // 강제 탈락/승리 처리 데드라인은 없다 — 그냥 정보성 배너다(backend#161).
+  const [disconnectedParticipant, setDisconnectedParticipant] = useState(false);
   const [flashByParticipantId, setFlashByParticipantId] = useState<Record<string, boolean>>({});
   const [notSpectatable, setNotSpectatable] = useState(false);
 
@@ -175,12 +176,12 @@ export default function SpectateBoardPage() {
     setEndData(data);
   }, []);
 
-  const handleOpponentDisconnected = useCallback((_userId: string, graceMs: number) => {
-    setDisconnectGrace(Math.ceil(graceMs / 1000));
+  const handleOpponentDisconnected = useCallback(() => {
+    setDisconnectedParticipant(true);
   }, []);
 
   const handleOpponentReconnected = useCallback(() => {
-    setDisconnectGrace(null);
+    setDisconnectedParticipant(false);
   }, []);
 
   const handleStateSync = useCallback((data: Parameters<import('../types/acidRain').AcidRainServerEvents['state_sync']>[0]) => {
@@ -367,9 +368,9 @@ export default function SpectateBoardPage() {
             </div>
           ))}
 
-          {disconnectGrace !== null && (
+          {disconnectedParticipant && (
             <div style={S.disconnectBanner}>
-              한 참가자의 연결이 끊겼습니다. {disconnectGrace}초 내 재접속하지 않으면 매치가 종료됩니다.
+              한 참가자의 연결이 끊겼습니다. 재접속을 기다리는 중입니다.
             </div>
           )}
         </div>

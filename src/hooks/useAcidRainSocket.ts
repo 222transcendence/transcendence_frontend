@@ -19,7 +19,7 @@ export interface AcidRainHandlers {
   /** 탈락 이벤트 (N인 배틀로얄) */
   onPlayerEliminated?: (userId: string, rank: number, finalHp: number) => void;
   onMatchEnd?: (data: MatchEndData) => void;
-  onOpponentDisconnected?: (userId: string, graceMs: number) => void;
+  onOpponentDisconnected?: (userId: string) => void;
   onOpponentReconnected?: (userId: string) => void;
   onStateSync?: (data: Parameters<AcidRainServerEvents['state_sync']>[0]) => void;
   /** 상대방 실시간 입력 진행도 (#71) */
@@ -139,7 +139,7 @@ export function useAcidRainSocket(
     };
 
     const onOpponentDisconnected = (data: Parameters<AcidRainServerEvents['opponent_disconnected']>[0]) => {
-      handlersRef.current.onOpponentDisconnected?.(data.userId, data.graceMs);
+      handlersRef.current.onOpponentDisconnected?.(data.userId);
     };
 
     const onOpponentReconnected = (data: Parameters<AcidRainServerEvents['opponent_reconnected']>[0]) => {

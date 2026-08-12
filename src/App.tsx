@@ -11,6 +11,7 @@ import TermsOfServicePage from './pages/TermsOfServicePage';
 import StatsPage from './pages/StatsPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import GameBoardPage from './pages/GameBoardPage';
+import SpectateBoardPage from './pages/SpectateBoardPage';
 import PrivateRoute from './components/PrivateRoute';
 import InviteNotification from './components/InviteNotification';
 import { GameSocketProvider } from './context/GameSocketContext';
@@ -78,6 +79,12 @@ function App() {
         <Route
           path="/game/:roomId"
           element={<PrivateRoute><GameBoardPage /></PrivateRoute>}
+        />
+
+        {/* Spectator Mode (deploy#70) */}
+        <Route
+          path="/spectate/:roomId"
+          element={<PrivateRoute><SpectateBoardPage /></PrivateRoute>}
         />
 
         {/* Dev-only animation demo (#6), not linked from nav */}

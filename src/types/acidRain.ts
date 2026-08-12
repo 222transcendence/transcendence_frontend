@@ -138,7 +138,11 @@ export interface AcidRainServerEvents {
 // ── Client → Server ──────────────────────────────────────────────────────────
 
 export interface AcidRainClientEvents {
-  join_room:   (payload: { roomId: string }) => void;
-  leave_room:  (payload: { roomId: string }) => void;
-  word_submit: (payload: { roomId: string; wordId: string; text: string; clientTs: number; attemptId: string }) => void;
+  join_room:     (payload: { roomId: string }) => void;
+  leave_room:    (payload: { roomId: string }) => void;
+  word_submit:   (payload: { roomId: string; wordId: string; text: string; clientTs: number; attemptId: string }) => void;
+  /** 관전 입장 — room.players에는 등록되지 않는다 (deploy#70) */
+  spectate_room: (payload: { roomId: string }) => void;
+  /** 관전 종료(인앱 이동 등) — 소켓 disconnect를 기다리지 않고 즉시 정리 (deploy#70) */
+  leave_spectate: (payload: { roomId: string }) => void;
 }

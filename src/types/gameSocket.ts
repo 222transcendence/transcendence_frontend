@@ -85,8 +85,12 @@ export interface ServerToClientEvents {
 // ─── Client-to-server event map ───────────────────────────────────────────────
 
 export interface ClientToServerEvents {
-  join_room:    (payload: { roomId: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
-  leave_room:   (payload: { roomId: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
-  submit_cards: (payload: { roomId: string; cardIds: number[] }, callback?: (res: { event: string; data: unknown }) => void) => void;
-  word_submit:  (payload: { roomId: string; wordId: string; text: string; clientTs?: number; attemptId: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
+  join_room:     (payload: { roomId: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
+  leave_room:    (payload: { roomId: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
+  submit_cards:  (payload: { roomId: string; cardIds: number[] }, callback?: (res: { event: string; data: unknown }) => void) => void;
+  word_submit:   (payload: { roomId: string; wordId: string; text: string; clientTs?: number; attemptId: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
+  /** 관전 입장 — room.players에는 등록되지 않는다 (deploy#70) */
+  spectate_room: (payload: { roomId: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
+  /** 관전 종료(인앱 이동 등) — 소켓 disconnect를 기다리지 않고 즉시 정리 (deploy#70) */
+  leave_spectate: (payload: { roomId: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
 }

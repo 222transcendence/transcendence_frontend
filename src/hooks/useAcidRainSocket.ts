@@ -28,7 +28,11 @@ function calcClockOffset(serverNow: string): number {
   return Date.parse(serverNow) - Date.now();
 }
 
-export function useAcidRainSocket(roomId: string, handlers: AcidRainHandlers = {}) {
+export function useAcidRainSocket(
+  roomId: string,
+  handlers: AcidRainHandlers = {},
+  mode: 'player' | 'spectator' = 'player',
+) {
   const { socket, connectionState, connect } = useGameSocketContext();
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
@@ -37,14 +41,27 @@ export function useAcidRainSocket(roomId: string, handlers: AcidRainHandlers = {
 
   useEffect(() => {
     connect();
-    return () => { socket?.emit('leave_room', { roomId }); };
+    // 관전자는 room.players/세션에 등록된 적이 없으므로 leave_room을 보낼 필요가 없다
+    // (서버에도 정리할 상태가 없음 — WEBSOCKET_PROTOCOL.md §6.7). 대신 인앱 이동 시
+    // 소켓 disconnect를 기다리지 않고 바로 "관전 종료" 메시지를 보내도록 leave_spectate를 emit.
+    return () => {
+      if (mode === 'player') {
+        socket?.emit('leave_room', { roomId });
+      } else {
+        socket?.emit('leave_spectate', { roomId });
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId]);
 
   useEffect(() => {
     if (!socket || connectionState !== 'connected' || !roomId) return;
-    socket.emit('join_room', { roomId });
-  }, [socket, connectionState, roomId]);
+    if (mode === 'spectator') {
+      socket.emit('spectate_room', { roomId });
+    } else {
+      socket.emit('join_room', { roomId });
+    }
+  }, [socket, connectionState, roomId, mode]);
 
   useEffect(() => {
     if (!socket) return;
@@ -132,12 +149,13 @@ export function useAcidRainSocket(roomId: string, handlers: AcidRainHandlers = {
 
   const submitWord = useCallback(
     (wordId: string, text: string) => {
+      if (mode === 'spectator') return; // 관전자는 판정에 참여할 수 없다 (서버도 거부함)
       // attemptId — 서버가 이 값으로 재전송(replay)을 구분/방지한다. 같은 wordId를
       // 다시 제출하더라도(재시도 등) 매번 새 시도로 취급되도록 매 호출마다 새로 발급.
       const attemptId = crypto.randomUUID();
       socket?.emit('word_submit', { roomId, wordId, text, clientTs: Date.now(), attemptId });
     },
-    [socket, roomId],
+    [socket, roomId, mode],
   );
 
   return { connectionState, submitWord };

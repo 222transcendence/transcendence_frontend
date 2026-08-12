@@ -76,7 +76,17 @@ export default function LobbyPage() {
         }
       }),
       socket.on('ROOM_CLOSED', ({ roomId }) => { if (isMounted) setRooms(prev => prev.filter(r => r.id !== roomId)); }),
-      socket.on('ACTION_REJECTED', ({ message }) => { if (isMounted) setConnectionError(message); }),
+      socket.on('ACTION_REJECTED', ({ message }) => {
+        if (!isMounted) return;
+        // AI practice 세션이 남아 있는 경우 자동 취소 후 재시도
+        if (message.includes('active AI practice session')) {
+          socket.send('CANCEL_AI_PRACTICE', {});
+          // 취소 후 잠시 뒤 방 목록 재요청 (재시도는 사용자가 직접)
+          setTimeout(() => { if (isMounted) setConnectionError('이전 AI 대전 세션이 정리되었습니다. 다시 시도해주세요.'); }, 300);
+        } else {
+          setConnectionError(message);
+        }
+      }),
       socket.on('SPECTATABLE_ROOM_LIST', ({ rooms: roomList }) => { if (isMounted) setSpectatableRooms(roomList); }),
     ];
 
@@ -85,6 +95,8 @@ export default function LobbyPage() {
         if (!isMounted) return;
         socket.send('LIST_ROOMS', {});
         socket.send('LIST_SPECTATABLE_ROOMS', {});
+        // 게임 종료 후 로비 복귀 시 잔여 AI practice 세션 자동 정리
+        socket.send('CANCEL_AI_PRACTICE', {});
         setIsConnecting(false);
       })
       .catch(() => { if (isMounted) { setConnectionError('로비 서버에 연결할 수 없습니다.'); setIsConnecting(false); } });

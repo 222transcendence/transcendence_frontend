@@ -7,8 +7,8 @@ export interface UserStats {
 
 export interface MatchHistoryItem {
   id: string;
-  hostUser: { id: string; nickname: string; avatar: string };
-  guestUser: { id: string; nickname: string; avatar: string };
+  hostUser: { id: string; nickname: string; avatar: string } | null;
+  guestUser: { id: string; nickname: string; avatar: string } | null;
   winner: { id: string; nickname: string } | null;
   turnsPlayed: number;
   createdAt: string;

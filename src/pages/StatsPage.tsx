@@ -110,7 +110,7 @@ export default function StatsPage() {
           <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {history.map(m => {
-                const isHost = m.hostUser.id === resolvedUserId;
+                const isHost = m.hostUser?.id === resolvedUserId;
                 const opponent = isHost ? m.guestUser : m.hostUser;
                 const won = m.winner?.id === resolvedUserId;
                 const result: 'WIN' | 'LOSS' | 'DRAW' = !m.winner ? 'DRAW' : won ? 'WIN' : 'LOSS';
@@ -127,7 +127,11 @@ export default function StatsPage() {
                     </span>
                     <span style={{ flex: 1, fontSize: 13, color: '#c7cede' }}>
                       vs{' '}
-                      <Link to={`/stats/${opponent.id}`} style={{ color: '#12c8a8', textDecoration: 'none' }}>{opponent.nickname}</Link>
+                      {opponent ? (
+                        <Link to={`/stats/${opponent.id}`} style={{ color: '#12c8a8', textDecoration: 'none' }}>{opponent.nickname}</Link>
+                      ) : (
+                        <span style={{ color: '#8a93a8' }}>AI</span>
+                      )}
                     </span>
                     <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: '#3a4256' }}>
                       {new Date(m.createdAt).toLocaleDateString('ko-KR')}

@@ -65,7 +65,16 @@ export function useAcidRainSocket(
 
     if (mode === 'spectator') {
       socket.emit('spectate_room', { roomId });
-      return;
+
+      // 로비는 join_room의 match_ready 시점(카운트다운 시작)에 바로 방을 "관전 가능"으로
+      // 보여주지만(#153), 서버의 getSpectatorSnapshot은 세션이 IN_PROGRESS일 때만 스냅샷을
+      // 준다 — 카운트다운(3초) 동안은 spectate_room이 거부된다. state_sync를 받을 때까지
+      // 짧게 재시도해 이 틈을 메운다(join_room의 #144 재시도와 동일한 패턴).
+      const spectateRetry = setInterval(() => {
+        if (joinedRef.current) return;
+        socket.emit('spectate_room', { roomId });
+      }, 1500);
+      return () => clearInterval(spectateRetry);
     }
 
     socket.emit('join_room', { roomId });

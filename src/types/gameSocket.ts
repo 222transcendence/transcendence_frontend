@@ -80,6 +80,8 @@ export interface ServerToClientEvents {
   opponent_disconnected: (data: Parameters<import('./acidRain').AcidRainServerEvents['opponent_disconnected']>[0]) => void;
   opponent_reconnected:  (data: Parameters<import('./acidRain').AcidRainServerEvents['opponent_reconnected']>[0]) => void;
   state_sync:            (data: Parameters<import('./acidRain').AcidRainServerEvents['state_sync']>[0]) => void;
+  /** 상대방 실시간 입력 진행도 (#71) */
+  opponent_typing:       (data: Parameters<import('./acidRain').AcidRainServerEvents['opponent_typing']>[0]) => void;
 }
 
 // ─── Client-to-server event map ───────────────────────────────────────────────
@@ -92,5 +94,7 @@ export interface ClientToServerEvents {
   /** 관전 입장 — room.players에는 등록되지 않는다 (deploy#70) */
   spectate_room: (payload: { roomId: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
   /** 관전 종료(인앱 이동 등) — 소켓 disconnect를 기다리지 않고 즉시 정리 (deploy#70) */
-  leave_spectate: (payload: { roomId: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
+  leave_spectate:   (payload: { roomId: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
+  /** 실시간 입력 진행도 전송 (#71) */
+  typing_progress:  (payload: { roomId: string; partialText: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
 }

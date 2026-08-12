@@ -4,17 +4,17 @@ import type {
   AcidRainServerEvents,
   FallingWord,
   MatchEndData,
-  PlayerState,
-  PlayerHpUpdate,
+  ParticipantState,
+  HpByParticipantId,
 } from '../types/acidRain';
 
 export interface AcidRainHandlers {
-  /** N인 전원 입장 완료 */
-  onMatchReady?: (players: PlayerState[]) => void;
+  /** 전원 입장 완료 — HUMAN/AI 공통 participants[] (backend#138) */
+  onMatchReady?: (participants: ParticipantState[]) => void;
   onMatchStart?: (startAt: string, now: string, initialHp: number) => void;
   onWordSpawn?: (word: FallingWord) => void;
-  onWordCleared?: (wordId: string, clearedBy: string, damage: number, hpUpdates: PlayerHpUpdate[]) => void;
-  onWordMissed?: (wordId: string, splashDamage: number, hpUpdates: PlayerHpUpdate[]) => void;
+  onWordCleared?: (wordId: string, clearedBy: string, targetParticipantId: string, damage: number, hp: HpByParticipantId) => void;
+  onWordMissed?: (wordId: string, splashDamage: number, hp: HpByParticipantId) => void;
   onSubmitRejected?: (wordId: string, reason: string) => void;
   /** 탈락 이벤트 (N인 배틀로얄) */
   onPlayerEliminated?: (userId: string, rank: number, finalHp: number) => void;
@@ -50,7 +50,7 @@ export function useAcidRainSocket(roomId: string, handlers: AcidRainHandlers = {
     if (!socket) return;
 
     const onMatchReady = (data: Parameters<AcidRainServerEvents['match_ready']>[0]) => {
-      handlersRef.current.onMatchReady?.(data.players);
+      handlersRef.current.onMatchReady?.(data.participants);
     };
 
     const onMatchStart = (data: Parameters<AcidRainServerEvents['match_start']>[0]) => {
@@ -71,14 +71,11 @@ export function useAcidRainSocket(roomId: string, handlers: AcidRainHandlers = {
     };
 
     const onWordCleared = (data: Parameters<AcidRainServerEvents['word_cleared']>[0]) => {
-      // hpUpdates가 없으면 targetHp(구형 2인)에서 변환
-      const hpUpdates: PlayerHpUpdate[] = data.hpUpdates ?? [];
-      handlersRef.current.onWordCleared?.(data.wordId, data.clearedBy, data.damage, hpUpdates);
+      handlersRef.current.onWordCleared?.(data.wordId, data.clearedBy, data.targetParticipantId, data.damage, data.hp);
     };
 
     const onWordMissed = (data: Parameters<AcidRainServerEvents['word_missed']>[0]) => {
-      const hpUpdates: PlayerHpUpdate[] = data.hpUpdates ?? [];
-      handlersRef.current.onWordMissed?.(data.wordId, data.splashDamage, hpUpdates);
+      handlersRef.current.onWordMissed?.(data.wordId, data.splashDamage, data.hp);
     };
 
     const onSubmitRejected = (data: Parameters<AcidRainServerEvents['submit_rejected']>[0]) => {
@@ -135,7 +132,10 @@ export function useAcidRainSocket(roomId: string, handlers: AcidRainHandlers = {
 
   const submitWord = useCallback(
     (wordId: string, text: string) => {
-      socket?.emit('word_submit', { roomId, wordId, text, clientTs: Date.now() });
+      // attemptId — 서버가 이 값으로 재전송(replay)을 구분/방지한다. 같은 wordId를
+      // 다시 제출하더라도(재시도 등) 매번 새 시도로 취급되도록 매 호출마다 새로 발급.
+      const attemptId = crypto.randomUUID();
+      socket?.emit('word_submit', { roomId, wordId, text, clientTs: Date.now(), attemptId });
     },
     [socket, roomId],
   );

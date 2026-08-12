@@ -147,8 +147,8 @@ export interface AcidRainClientEvents {
   join_room:       (payload: { roomId: string }) => void;
   leave_room:      (payload: { roomId: string }) => void;
   word_submit:     (payload: { roomId: string; wordId: string; text: string; clientTs: number; attemptId: string }) => void;
-  /** 실시간 입력 진행도 전송 (#71) */
-  typing_progress: (payload: { roomId: string; partialText: string }) => void;
+  /** 실시간 입력 진행도 전송 (#71) — wordId/clientTs는 서버 측 타건 성능 추적용 (#160) */
+  typing_progress: (payload: { roomId: string; partialText: string; wordId?: string; clientTs?: number }) => void;
   /** 관전 입장 — room.players에는 등록되지 않는다 (#70) */
   spectate_room:   (payload: { roomId: string }) => void;
   /** 관전 종료(인앱 이동 등) (#70) */

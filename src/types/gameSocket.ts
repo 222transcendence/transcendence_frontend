@@ -95,6 +95,6 @@ export interface ClientToServerEvents {
   spectate_room: (payload: { roomId: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
   /** 관전 종료(인앱 이동 등) — 소켓 disconnect를 기다리지 않고 즉시 정리 (deploy#70) */
   leave_spectate:   (payload: { roomId: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
-  /** 실시간 입력 진행도 전송 (#71) */
-  typing_progress:  (payload: { roomId: string; partialText: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
+  /** 실시간 입력 진행도 전송 (#71) — wordId/clientTs는 서버 측 타건 성능 추적용 (#160) */
+  typing_progress:  (payload: { roomId: string; partialText: string; wordId?: string; clientTs?: number }, callback?: (res: { event: string; data: unknown }) => void) => void;
 }

@@ -34,6 +34,8 @@ export interface FallingWord {
   lane: number;
   fallDurationMs: number;
   spawnedAt: string;
+  /** 서버가 확정한 공격력 — 백엔드 계약(#109) 확정 전까지는 항상 undefined, 값이 오면만 표시한다. 클라이언트는 이 값을 계산하지 않는다. */
+  damage?: number;
   /** 클라이언트가 보정 후 계산한 애니메이션 시작 epoch (ms) */
   animStartAt: number;
   /** word가 state에 추가되는 시점(이벤트 핸들러) 기준으로 미리 계산한 CSS animation-delay(ms) — render에서 Date.now() 호출을 피하기 위함 */
@@ -82,6 +84,8 @@ export interface AcidRainServerEvents {
     lane: number;
     fallDurationMs: number;
     spawnedAt: string;
+    /** 서버 확정 공격력 — 계약(#109) 확정 전까지는 미전송, optional로 취급 */
+    damage?: number;
   }) => void;
 
   /** 정타 — players[] HP 업데이트 */
@@ -125,6 +129,7 @@ export interface AcidRainServerEvents {
       lane: number;
       fallDurationMs: number;
       spawnedAt: string;
+      damage?: number;
     }>;
     elapsedMs: number;
     now: string;

@@ -16,6 +16,13 @@ function keystrokeColor(keystrokes: number) {
   return '#ef4a63';
 }
 
+// ── 위험도 라벨 — damage가 서버에서 오기 전까지는 keystrokes로만 위험/보상을 가늠 ──
+function riskLabel(keystrokes: number) {
+  if (keystrokes <= 5) return '약';
+  if (keystrokes <= 9) return '중';
+  return '강';
+}
+
 // ── Word falling animation injected once ─────────────────────────────────────
 const styleId = 'acid-rain-keyframes';
 if (!document.getElementById(styleId)) {
@@ -26,8 +33,10 @@ if (!document.getElementById(styleId)) {
     @keyframes flash-green { 0%,100% { background: transparent; } 50% { background: rgba(18,200,168,.18); } }
     @keyframes flash-red   { 0%,100% { background: transparent; } 50% { background: rgba(239,74,99,.18); } }
     @keyframes pop-out { 0% { opacity:1; transform:scale(1); } 100% { opacity:0; transform:scale(1.6); } }
+    @keyframes shrink-bar { from { width: 100%; } to { width: 0%; } }
     .word-chip { animation: fall linear forwards; position: absolute; cursor: default; user-select: none; }
     .word-chip.matched { animation: pop-out .25s ease forwards !important; }
+    .word-chip .time-bar { animation: shrink-bar linear forwards; }
   `;
   document.head.appendChild(style);
 }
@@ -65,6 +74,7 @@ export default function GameBoardPage() {
   const [disconnectGrace, setDisconnectGrace] = useState<number | null>(null);
   const [leaveConfirm, setLeaveConfirm] = useState(false);
   const [flashByUserId, setFlashByUserId] = useState<Record<string, boolean>>({});
+  const [inputError, setInputError] = useState(false);
 
   // ── Input ─────────────────────────────────────────────────────────────────
   const [input, setInput]     = useState('');
@@ -174,6 +184,14 @@ export default function GameBoardPage() {
     setPlayers(prev => prev.map(p => p.userId === userId ? { ...p, hp: finalHp, rank } : p));
   }, []);
 
+  // 경합 패배(ALREADY_CLEARED) 등으로 제출이 거부된 경우 — 이미 사라진 단어를
+  // 계속 붙들고 있지 않도록 입력을 정리하고 짧게 오류 피드백을 보여준다.
+  const handleSubmitRejected = useCallback(() => {
+    setInput('');
+    setInputError(true);
+    setTimeout(() => setInputError(false), 300);
+  }, []);
+
   const handleMatchEnd = useCallback((data: MatchEndData) => {
     if (timerRef.current) clearInterval(timerRef.current);
     setPhase('FINISHED');
@@ -208,6 +226,7 @@ export default function GameBoardPage() {
     onWordCleared: handleWordCleared,
     onWordMissed: handleWordMissed,
     onPlayerEliminated: handlePlayerEliminated,
+    onSubmitRejected: handleSubmitRejected,
     onMatchEnd: handleMatchEnd,
     onOpponentDisconnected: handleOpponentDisconnected,
     onStateSync: handleStateSync,
@@ -347,18 +366,19 @@ export default function GameBoardPage() {
               </div>
             )}
 
-            {/* Falling words */}
+            {/* Falling words — 레인마다 고정 폭 컬럼을 배정해 옆 레인과 겹치지 않게 한다 */}
             {words.map(word => (
               <div
                 key={word.wordId}
                 className={`word-chip${matchedIds.has(word.wordId) ? ' matched' : ''}`}
                 style={{
-                  left: `${(word.lane / 4) * 90}%`,
+                  left: `calc(${word.lane} * 18%)`,
+                  width: '16%',
                   animationDuration: `${word.fallDurationMs}ms`,
                   // animStartAt이 과거(재접속 복원)면 음수 delay로 애니메이션을 이미 진행된
                   // 지점으로 점프시켜, 새로 낙하가 시작된 것처럼 보이지 않도록 한다.
                   animationDelay: `${word.renderDelayMs}ms`,
-                  padding: '5px 13px',
+                  padding: '5px 10px 4px',
                   borderRadius: 8,
                   border: `1px solid ${keystrokeColor(word.keystrokes)}55`,
                   background: `${keystrokeColor(word.keystrokes)}14`,
@@ -366,16 +386,38 @@ export default function GameBoardPage() {
                   fontFamily: "'JetBrains Mono', monospace",
                   fontWeight: 700,
                   fontSize,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
                   boxShadow: `0 0 12px ${keystrokeColor(word.keystrokes)}44`,
                   letterSpacing: '.04em',
                   opacity: 1,
+                  boxSizing: 'border-box',
                 } as React.CSSProperties}
               >
-                {input && word.text.startsWith(input)
-                  ? <><span style={{ color: '#fff', textDecoration: 'underline' }}>{input}</span>{word.text.slice(input.length)}</>
-                  : word.text
-                }
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6 }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {input && word.text.startsWith(input)
+                      ? <><span style={{ color: '#fff', textDecoration: 'underline' }}>{input}</span>{word.text.slice(input.length)}</>
+                      : word.text
+                    }
+                  </span>
+                  <span style={{ fontSize: 9, opacity: .75, flexShrink: 0 }}>
+                    {word.damage !== undefined ? `⚔${word.damage}` : riskLabel(word.keystrokes)}
+                  </span>
+                </div>
+                {/* 남은 낙하 시간 — 위험/보상을 눈으로 가늠할 수 있도록 fall 애니메이션과 같은 duration/delay로 동기화 */}
+                <div style={{ marginTop: 4, height: 2, borderRadius: 1, background: 'rgba(255,255,255,.12)', overflow: 'hidden' }}>
+                  <div
+                    className="time-bar"
+                    style={{
+                      height: '100%',
+                      background: keystrokeColor(word.keystrokes),
+                      animationDuration: `${word.fallDurationMs}ms`,
+                      animationDelay: `${word.renderDelayMs}ms`,
+                    } as React.CSSProperties}
+                  />
+                </div>
               </div>
             ))}
 
@@ -409,7 +451,12 @@ export default function GameBoardPage() {
               onChange={handleInputChange}
               disabled={phase !== 'IN_PROGRESS'}
               placeholder={phase === 'IN_PROGRESS' ? '단어를 입력하세요…' : ''}
-              style={S.inputField}
+              style={{
+                ...S.inputField,
+                border: inputError ? '1px solid rgba(239,74,99,.6)' : S.inputField.border,
+                background: inputError ? 'rgba(239,74,99,.08)' : S.inputField.background,
+                transition: 'border-color .15s, background .15s',
+              }}
               autoComplete="off"
               autoCorrect="off"
               spellCheck={false}

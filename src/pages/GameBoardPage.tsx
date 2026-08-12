@@ -4,7 +4,7 @@ import { fetchMyProfile } from '../api/client';
 import ChatPanel from '../components/ChatPanel';
 import { useAcidRainSocket } from '../hooks/useAcidRainSocket';
 import { useWordFontSize } from '../hooks/useWordFontSize';
-import type { FallingWord, MatchEndData, GamePhase, PlayerState, PlayerHpUpdate } from '../types/acidRain';
+import type { FallingWord, MatchEndData, GamePhase, ParticipantState, HpByParticipantId } from '../types/acidRain';
 
 const MAX_HP = 100;
 const MATCH_DURATION = 180;
@@ -66,7 +66,7 @@ export default function GameBoardPage() {
   // ── Game state ────────────────────────────────────────────────────────────
   const [phase, setPhase]         = useState<GamePhase>('WAITING');
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [players, setPlayers]     = useState<PlayerState[]>([]);
+  const [players, setPlayers]     = useState<ParticipantState[]>([]);
   const [elapsed, setElapsed]     = useState(0);
   const [words, setWords]         = useState<FallingWord[]>([]);
   const [matchedIds, setMatchedIds] = useState<Set<string>>(new Set());
@@ -133,18 +133,15 @@ export default function GameBoardPage() {
 
   // ── Socket handlers ───────────────────────────────────────────────────────
 
-  const applyHpUpdates = useCallback((updates: PlayerHpUpdate[]) => {
-    setPlayers(prev => prev.map(p => {
-      const u = updates.find(x => x.userId === p.userId);
-      return u ? { ...p, hp: u.hp } : p;
-    }));
-    updates.forEach(u => flashHit(u.userId));
+  const applyHp = useCallback((hp: HpByParticipantId) => {
+    setPlayers(prev => prev.map(p => (p.participantId in hp ? { ...p, hp: hp[p.participantId] } : p)));
+    Object.keys(hp).forEach(flashHit);
   }, [flashHit]);
 
-  const handleMatchReady = useCallback((matchPlayers: PlayerState[]) => {
+  const handleMatchReady = useCallback((participants: ParticipantState[]) => {
     setPhase('COUNTDOWN');
     setCountdown(3);
-    setPlayers(matchPlayers);
+    setPlayers(participants);
   }, []);
 
   const handleMatchStart = useCallback((startAt: string, now: string, initialHp: number) => {
@@ -166,22 +163,22 @@ export default function GameBoardPage() {
     setWords(prev => [...prev, word]);
   }, []);
 
-  const handleWordCleared = useCallback((wordId: string, _clearedBy: string, _damage: number, hpUpdates: PlayerHpUpdate[]) => {
+  const handleWordCleared = useCallback((wordId: string, _clearedBy: string, _targetParticipantId: string, _damage: number, hp: HpByParticipantId) => {
     setMatchedIds(prev => new Set([...prev, wordId]));
     setTimeout(() => {
       setWords(prev => prev.filter(w => w.wordId !== wordId));
       setMatchedIds(prev => { const n = new Set(prev); n.delete(wordId); return n; });
     }, 300);
-    applyHpUpdates(hpUpdates);
-  }, [applyHpUpdates]);
+    applyHp(hp);
+  }, [applyHp]);
 
-  const handleWordMissed = useCallback((_wordId: string, _splashDamage: number, hpUpdates: PlayerHpUpdate[]) => {
+  const handleWordMissed = useCallback((_wordId: string, _splashDamage: number, hp: HpByParticipantId) => {
     setWords(prev => prev.filter(w => w.wordId !== _wordId));
-    applyHpUpdates(hpUpdates);
-  }, [applyHpUpdates]);
+    applyHp(hp);
+  }, [applyHp]);
 
   const handlePlayerEliminated = useCallback((userId: string, rank: number, finalHp: number) => {
-    setPlayers(prev => prev.map(p => p.userId === userId ? { ...p, hp: finalHp, rank } : p));
+    setPlayers(prev => prev.map(p => p.participantId === userId ? { ...p, hp: finalHp, rank } : p));
   }, []);
 
   // 경합 패배(ALREADY_CLEARED) 등으로 제출이 거부된 경우 — 이미 사라진 단어를
@@ -209,7 +206,7 @@ export default function GameBoardPage() {
     clockOffsetRef.current = clockOffset;
     // 서버 현재시각(now) - 경과시간(elapsedMs) = 서버 기준 매치 시작 시각
     serverStartAtRef.current = Date.parse(data.now) - data.elapsedMs;
-    setPlayers(data.players);
+    setPlayers(data.participants.map(p => (p.participantId in data.hp ? { ...p, hp: data.hp[p.participantId] } : p)));
     const restored: FallingWord[] = data.activeWords.map(w => {
       const animStartAt = Date.parse(w.spawnedAt) + clockOffset;
       return { ...w, animStartAt, renderDelayMs: animStartAt - Date.now() };
@@ -245,11 +242,11 @@ export default function GameBoardPage() {
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const myId = myUserIdRef.current;
-  const myPlayer = players.find(p => p.userId === myId) ?? { userId: myId, nickname: myNickname || '나', hp: MAX_HP };
-  const otherPlayers = players.filter(p => p.userId !== myId);
+  const myPlayer = players.find(p => p.participantId === myId) ?? { participantId: myId, nickname: myNickname || '나', type: 'HUMAN' as const, hp: MAX_HP };
+  const otherPlayers = players.filter(p => p.participantId !== myId);
   const myHpPct = Math.max(0, (myPlayer.hp / MAX_HP) * 100);
   const remaining = Math.max(0, MATCH_DURATION - elapsed);
-  const nicknameFor = (userId: string) => players.find(p => p.userId === userId)?.nickname ?? (userId === myId ? (myNickname || '나') : '???');
+  const nicknameFor = (participantId: string) => players.find(p => p.participantId === participantId)?.nickname ?? (participantId === myId ? (myNickname || '나') : '???');
 
   // ── End modal ─────────────────────────────────────────────────────────────
   if (endData) {
@@ -268,11 +265,11 @@ export default function GameBoardPage() {
             </div>
             <div style={S.endStats}>
               {ranking.map(r => (
-                <div key={r.userId} style={S.endStatRow}>
+                <div key={r.participantId} style={S.endStatRow}>
                   <span style={S.endStatLabel}>#{r.rank}</span>
-                  <span style={{ color: r.userId === myId ? '#12c8a8' : '#c7cede', flex: 1, textAlign: 'left' as const }}>{nicknameFor(r.userId)}</span>
-                  <span style={{ color: '#8a93a8' }}>HP {r.finalHp}</span>
-                  <span style={{ color: '#8a93a8' }}>{endData.wordsTyped?.[r.userId] ?? 0}단어</span>
+                  <span style={{ color: r.participantId === myId ? '#12c8a8' : '#c7cede', flex: 1, textAlign: 'left' as const }}>{nicknameFor(r.participantId)}</span>
+                  <span style={{ color: '#8a93a8' }}>HP {endData.finalHp[r.participantId] ?? 0}</span>
+                  <span style={{ color: '#8a93a8' }}>{endData.wordsTyped?.[r.participantId] ?? 0}단어</span>
                 </div>
               ))}
               <div style={S.endStatRow}>
@@ -330,8 +327,8 @@ export default function GameBoardPage() {
               const eliminated = p.rank !== undefined;
               return (
                 <div
-                  key={p.userId}
-                  style={{ ...S.playerRow, background: flashByUserId[p.userId] ? 'rgba(239,74,99,.1)' : 'transparent', transition: 'background .15s', opacity: eliminated ? 0.5 : 1, borderRadius: 8 }}
+                  key={p.participantId}
+                  style={{ ...S.playerRow, background: flashByUserId[p.participantId] ? 'rgba(239,74,99,.1)' : 'transparent', transition: 'background .15s', opacity: eliminated ? 0.5 : 1, borderRadius: 8 }}
                 >
                   <div style={{ ...S.avatar, borderColor: eliminated ? '#5c6a8a' : '#ef4a63' }} />
                   <div style={{ flex: 1 }}>

@@ -88,5 +88,5 @@ export interface ClientToServerEvents {
   join_room:    (payload: { roomId: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
   leave_room:   (payload: { roomId: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
   submit_cards: (payload: { roomId: string; cardIds: number[] }, callback?: (res: { event: string; data: unknown }) => void) => void;
-  word_submit:  (payload: { roomId: string; wordId: string; text: string; clientTs?: number }, callback?: (res: { event: string; data: unknown }) => void) => void;
+  word_submit:  (payload: { roomId: string; wordId: string; text: string; clientTs?: number; attemptId: string }, callback?: (res: { event: string; data: unknown }) => void) => void;
 }

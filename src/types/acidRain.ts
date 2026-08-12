@@ -1,30 +1,29 @@
-export type WordTier = 'easy' | 'medium' | 'hard';
 export type GamePhase = 'WAITING' | 'COUNTDOWN' | 'IN_PROGRESS' | 'FINISHED';
 export type EndReason = 'KO' | 'TIME_LIMIT' | 'FORFEIT';
+export type ParticipantType = 'HUMAN' | 'AI';
+export type AiDifficulty = 'BEGINNER' | 'NORMAL' | 'HARD';
 
-export interface PlayerPublic {
-  userId: string;
+export interface ParticipantPublic {
+  participantId: string;
+  userId?: string;
   nickname: string;
-  avatar?: string;
+  type: ParticipantType;
+  aiDifficulty?: AiDifficulty;
 }
 
-/** N인 대응 플레이어 상태 (HP 포함) */
-export interface PlayerState extends PlayerPublic {
+/** HP/순위를 포함한 참가자 상태 */
+export interface ParticipantState extends ParticipantPublic {
   hp: number;
   /** 탈락 확정 시 rank 기록, 생존 중은 undefined */
   rank?: number;
 }
 
-/** N인 HP 업데이트 페이로드 */
-export interface PlayerHpUpdate {
-  userId: string;
-  hp: number;
-}
+/** participantId를 키로 하는 HP 맵 — backend#138 canonical 계약 */
+export type HpByParticipantId = Record<string, number>;
 
-/** 하위호환: 구형 2인 매치용 HP 쌍 */
-export interface HpPair {
-  host: number;
-  guest: number;
+export interface RankingEntry {
+  participantId: string;
+  rank: number;
 }
 
 export interface FallingWord {
@@ -34,40 +33,34 @@ export interface FallingWord {
   lane: number;
   fallDurationMs: number;
   spawnedAt: string;
-  /** 서버가 확정한 공격력 — 백엔드 계약(#109) 확정 전까지는 항상 undefined, 값이 오면만 표시한다. 클라이언트는 이 값을 계산하지 않는다. */
-  damage?: number;
+  /** 서버가 확정한 공격력 (backend#138 계약 확정 이후 항상 전송됨) */
+  damage: number;
   /** 클라이언트가 보정 후 계산한 애니메이션 시작 epoch (ms) */
   animStartAt: number;
   /** word가 state에 추가되는 시점(이벤트 핸들러) 기준으로 미리 계산한 CSS animation-delay(ms) — render에서 Date.now() 호출을 피하기 위함 */
   renderDelayMs: number;
 }
 
-export interface PlayerRank {
-  userId: string;
-  rank: number;
-  finalHp: number;
-}
-
 export interface MatchEndData {
   /** 단독 우승자 (공동 우승 시 null) */
   winnerId: string | null;
   reason: EndReason;
-  /** N인 최종 순위 (rank=1이 우승) */
-  ranking: PlayerRank[];
+  /** 최종 순위 (rank=1이 우승) */
+  ranking: RankingEntry[];
+  /** participantId 기준 최종 HP */
+  finalHp: HpByParticipantId;
   durationSec: number;
-  /** 하위호환: 구형 2인 매치 finalHp */
-  finalHp?: HpPair;
   wordsTyped?: Record<string, number>;
 }
 
 // ── Server → Client ──────────────────────────────────────────────────────────
 
 export interface AcidRainServerEvents {
-  /** 전원 입장 완료 — players[] 기반 N인 */
+  /** 전원 입장 완료 — participants[] 기반(HUMAN/AI 공통 표현, backend#138) */
   match_ready: (data: {
     roomId: string;
     protocolVersion: string;
-    players: PlayerState[];
+    participants: ParticipantState[];
   }) => void;
 
   match_start: (data: {
@@ -84,27 +77,25 @@ export interface AcidRainServerEvents {
     lane: number;
     fallDurationMs: number;
     spawnedAt: string;
-    /** 서버 확정 공격력 — 계약(#109) 확정 전까지는 미전송, optional로 취급 */
-    damage?: number;
+    /** 바닥 도달 예정 시각 (ISO8601) */
+    landAt: string;
+    damage: number;
   }) => void;
 
-  /** 정타 — players[] HP 업데이트 */
+  /** 정타 — participantId 기준 HP 맵 갱신 */
   word_cleared: (data: {
     wordId: string;
     clearedBy: string;
+    targetParticipantId: string;
     damage: number;
-    /** N인 HP 업데이트 배열 */
-    hpUpdates: PlayerHpUpdate[];
-    /** 하위호환: 2인 targetHp */
-    targetHp?: HpPair;
+    hp: HpByParticipantId;
   }) => void;
 
-  /** 바닥 도달 — players[] HP 업데이트 */
+  /** 바닥 도달 — participantId 기준 HP 맵 갱신 */
   word_missed: (data: {
     wordId: string;
     splashDamage: number;
-    hpUpdates: PlayerHpUpdate[];
-    targetHp?: HpPair;
+    hp: HpByParticipantId;
   }) => void;
 
   submit_rejected: (data: {
@@ -121,7 +112,8 @@ export interface AcidRainServerEvents {
 
   state_sync: (data: {
     roomId: string;
-    players: PlayerState[];
+    participants: ParticipantState[];
+    hp: HpByParticipantId;
     activeWords: Array<{
       wordId: string;
       text: string;
@@ -129,7 +121,9 @@ export interface AcidRainServerEvents {
       lane: number;
       fallDurationMs: number;
       spawnedAt: string;
-      damage?: number;
+      landAt: string;
+      damage: number;
+      status: 'ACTIVE';
     }>;
     elapsedMs: number;
     now: string;
@@ -146,5 +140,5 @@ export interface AcidRainServerEvents {
 export interface AcidRainClientEvents {
   join_room:   (payload: { roomId: string }) => void;
   leave_room:  (payload: { roomId: string }) => void;
-  word_submit: (payload: { roomId: string; wordId: string; text: string; clientTs: number }) => void;
+  word_submit: (payload: { roomId: string; wordId: string; text: string; clientTs: number; attemptId: string }) => void;
 }

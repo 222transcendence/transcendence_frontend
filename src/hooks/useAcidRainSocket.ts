@@ -198,10 +198,10 @@ export function useAcidRainSocket(
 
   const throttleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sendTypingProgress = useCallback(
-    (partialText: string) => {
+    (partialText: string, wordId?: string) => {
       if (mode === 'spectator' || !socket) return;
       if (throttleTimerRef.current) return;
-      socket.emit('typing_progress', { roomId, partialText });
+      socket.emit('typing_progress', { roomId, partialText, wordId, clientTs: Date.now() });
       throttleTimerRef.current = setTimeout(() => {
         throttleTimerRef.current = null;
       }, 100);

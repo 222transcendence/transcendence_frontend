@@ -238,8 +238,11 @@ export default function GameBoardPage() {
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setInput(val);
-    sendTypingProgress(val);
-  }, [sendTypingProgress]);
+    const targetWord = val
+      ? wordsRef.current.find(w => w.text.startsWith(val) && !matchedIds.has(w.wordId))
+      : undefined;
+    sendTypingProgress(val, targetWord?.wordId);
+  }, [matchedIds, sendTypingProgress]);
 
   const handleInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter') return;
@@ -250,7 +253,7 @@ export default function GameBoardPage() {
       submitWord(match.wordId, match.text);
     }
     setInput('');
-    sendTypingProgress('');
+    sendTypingProgress('', undefined);
   }, [input, matchedIds, submitWord, sendTypingProgress]);
 
   // ── Derived ───────────────────────────────────────────────────────────────

@@ -27,6 +27,8 @@ export interface LobbyServerMessage {
   ROOM_CLOSED: { roomId: string };
   GAME_START: { roomId: string };
   ACTION_REJECTED: { message: string };
+  /** 관전 가능한(IN_GAME) 방 목록 — deploy#70 */
+  SPECTATABLE_ROOM_LIST: { rooms: Room[] };
 }
 
 export interface LobbyClientMessage {
@@ -36,4 +38,6 @@ export interface LobbyClientMessage {
   GET_ROOM: { roomId: string };
   LEAVE_ROOM: { roomId: string };
   SET_READY: { roomId: string; ready: boolean };
+  /** 관전 가능한(IN_GAME) 방 목록 요청 — deploy#70 */
+  LIST_SPECTATABLE_ROOMS: Record<string, never>;
 }

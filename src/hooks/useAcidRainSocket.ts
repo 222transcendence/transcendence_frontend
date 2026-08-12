@@ -34,6 +34,8 @@ export function useAcidRainSocket(roomId: string, handlers: AcidRainHandlers = {
   handlersRef.current = handlers;
 
   const clockOffsetRef = useRef<number>(0);
+  // match_ready/state_sync 수신 여부 — 받기 전까지는 join_room을 주기적으로 재전송한다.
+  const joinedRef = useRef(false);
 
   useEffect(() => {
     connect();
@@ -42,14 +44,30 @@ export function useAcidRainSocket(roomId: string, handlers: AcidRainHandlers = {
   }, [roomId]);
 
   useEffect(() => {
+    joinedRef.current = false;
+  }, [roomId]);
+
+  useEffect(() => {
     if (!socket || connectionState !== 'connected' || !roomId) return;
     socket.emit('join_room', { roomId });
+
+    // 소켓 connect와 React 렌더 타이밍이 어긋나 join_room이 서버에 도달하지
+    // 않는 사례가 관측되어(#144), match_ready/state_sync로 응답이 올 때까지
+    // 짧은 간격으로 재전송한다. 서버의 join_room 처리는 멱등이라 이미 입장한
+    // 상태에서 재수신해도 안전하다(WAITING이면 다시 대기, 세션이 있으면
+    // state_sync 재전송).
+    const retry = setInterval(() => {
+      if (joinedRef.current) return;
+      socket.emit('join_room', { roomId });
+    }, 2000);
+    return () => clearInterval(retry);
   }, [socket, connectionState, roomId]);
 
   useEffect(() => {
     if (!socket) return;
 
     const onMatchReady = (data: Parameters<AcidRainServerEvents['match_ready']>[0]) => {
+      joinedRef.current = true;
       handlersRef.current.onMatchReady?.(data.participants);
     };
 
@@ -99,6 +117,7 @@ export function useAcidRainSocket(roomId: string, handlers: AcidRainHandlers = {
     };
 
     const onStateSync = (data: Parameters<AcidRainServerEvents['state_sync']>[0]) => {
+      joinedRef.current = true;
       clockOffsetRef.current = calcClockOffset(data.now);
       handlersRef.current.onStateSync?.(data);
     };

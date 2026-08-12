@@ -347,19 +347,13 @@ export default function GameBoardPage() {
                       </div>
                       <span style={S.hpNum}>{p.hp} / {MAX_HP}</span>
                     </div>
-                    {/* 상대방 실시간 입력 진행도 (#71) */}
+                    {/* 상대방 실시간 입력 진행도 — Option B: 입력 문자열 직접 표시 (#71) */}
                     {phase === 'IN_PROGRESS' && (() => {
                       const partial = opponentTyping[p.participantId] ?? '';
                       if (!partial) return null;
-                      const len = partial.length;
-                      const target = wordsRef.current.find(w => w.text.startsWith(partial));
-                      const total = target?.text.length ?? len;
-                      const filled = '█'.repeat(len);
-                      const empty = '░'.repeat(Math.max(0, total - len));
                       return (
                         <div style={S.typingProgress}>
-                          <span style={S.typingBlocks}>{filled}<span style={{ opacity: 0.3 }}>{empty}</span></span>
-                          <span style={S.typingCount}>{len}/{total}</span>
+                          <span style={S.typingBlocks}>{partial}</span>
                         </div>
                       );
                     })()}
@@ -612,12 +606,8 @@ const S = {
     fontFamily: "'JetBrains Mono', monospace",
     fontSize: 11,
     color: '#12c8a8',
-    letterSpacing: 1,
-  },
-  typingCount: {
-    fontFamily: "'JetBrains Mono', monospace",
-    fontSize: 10,
-    color: '#5c6a8a',
+    letterSpacing: 0.5,
+    opacity: 0.85,
   },
   rainArea: {
     flex: 1,

@@ -100,7 +100,8 @@ export interface AcidRainServerEvents {
 
   submit_rejected: (data: {
     wordId: string;
-    reason: 'ALREADY_CLEARED' | 'NOT_FOUND' | 'WRONG_TEXT';
+    /** PLAYER_ELIMINATED — 탈락(HP 0)한 참가자의 제출은 거부된다 (backend#157) */
+    reason: 'ALREADY_CLEARED' | 'NOT_FOUND' | 'WRONG_TEXT' | 'PLAYER_ELIMINATED';
   }) => void;
 
   /** 탈락 이벤트 (N인 배틀로얄) */

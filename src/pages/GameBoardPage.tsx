@@ -75,6 +75,8 @@ export default function GameBoardPage() {
   const [leaveConfirm, setLeaveConfirm] = useState(false);
   const [flashByUserId, setFlashByUserId] = useState<Record<string, boolean>>({});
   const [inputError, setInputError] = useState(false);
+  /** participantId → 현재 입력 중인 텍스트 (상대방 실시간 진행도 #71) */
+  const [opponentTyping, setOpponentTyping] = useState<Record<string, string>>({});
 
   // ── Input ─────────────────────────────────────────────────────────────────
   const [input, setInput]     = useState('');
@@ -216,7 +218,7 @@ export default function GameBoardPage() {
     startTimer();
   }, [startTimer]);
 
-  const { connectionState, submitWord } = useAcidRainSocket(roomId ?? '', {
+  const { connectionState, submitWord, sendTypingProgress } = useAcidRainSocket(roomId ?? '', {
     onMatchReady: handleMatchReady,
     onMatchStart: handleMatchStart,
     onWordSpawn: handleWordSpawn,
@@ -227,18 +229,23 @@ export default function GameBoardPage() {
     onMatchEnd: handleMatchEnd,
     onOpponentDisconnected: handleOpponentDisconnected,
     onStateSync: handleStateSync,
+    onOpponentTyping: useCallback((participantId: string, partialText: string) => {
+      setOpponentTyping(prev => ({ ...prev, [participantId]: partialText }));
+    }, []),
   });
 
   // ── Input submit: find matching word ─────────────────────────────────────
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setInput(val);
+    sendTypingProgress(val);
     const match = wordsRef.current.find(w => w.text === val && !matchedIds.has(w.wordId));
     if (match) {
       setInput('');
+      sendTypingProgress('');
       submitWord(match.wordId, match.text);
     }
-  }, [matchedIds, submitWord]);
+  }, [matchedIds, submitWord, sendTypingProgress]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const myId = myUserIdRef.current;
@@ -340,6 +347,22 @@ export default function GameBoardPage() {
                       </div>
                       <span style={S.hpNum}>{p.hp} / {MAX_HP}</span>
                     </div>
+                    {/* 상대방 실시간 입력 진행도 (#71) */}
+                    {phase === 'IN_PROGRESS' && (() => {
+                      const partial = opponentTyping[p.participantId] ?? '';
+                      if (!partial) return null;
+                      const len = partial.length;
+                      const target = wordsRef.current.find(w => w.text.startsWith(partial));
+                      const total = target?.text.length ?? len;
+                      const filled = '█'.repeat(len);
+                      const empty = '░'.repeat(Math.max(0, total - len));
+                      return (
+                        <div style={S.typingProgress}>
+                          <span style={S.typingBlocks}>{filled}<span style={{ opacity: 0.3 }}>{empty}</span></span>
+                          <span style={S.typingCount}>{len}/{total}</span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               );
@@ -577,6 +600,24 @@ const S = {
     fontSize: 11,
     color: '#c7cede',
     minWidth: 60,
+  },
+  typingProgress: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+    height: 14,
+  },
+  typingBlocks: {
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: 11,
+    color: '#12c8a8',
+    letterSpacing: 1,
+  },
+  typingCount: {
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: 10,
+    color: '#5c6a8a',
   },
   rainArea: {
     flex: 1,

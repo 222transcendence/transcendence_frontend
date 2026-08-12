@@ -22,6 +22,8 @@ export interface AcidRainHandlers {
   onOpponentDisconnected?: (userId: string, graceMs: number) => void;
   onOpponentReconnected?: (userId: string) => void;
   onStateSync?: (data: Parameters<AcidRainServerEvents['state_sync']>[0]) => void;
+  /** 상대방 실시간 입력 진행도 (#71) */
+  onOpponentTyping?: (participantId: string, partialText: string) => void;
 }
 
 function calcClockOffset(serverNow: string): number {
@@ -141,6 +143,10 @@ export function useAcidRainSocket(
       handlersRef.current.onStateSync?.(data);
     };
 
+    const onOpponentTyping = (data: Parameters<AcidRainServerEvents['opponent_typing']>[0]) => {
+      handlersRef.current.onOpponentTyping?.(data.participantId, data.partialText);
+    };
+
     socket.on('match_ready', onMatchReady);
     socket.on('match_start', onMatchStart);
     socket.on('word_spawn', onWordSpawn);
@@ -152,6 +158,7 @@ export function useAcidRainSocket(
     socket.on('opponent_disconnected', onOpponentDisconnected);
     socket.on('opponent_reconnected', onOpponentReconnected);
     socket.on('state_sync', onStateSync);
+    socket.on('opponent_typing', onOpponentTyping);
 
     return () => {
       socket.off('match_ready', onMatchReady);
@@ -165,6 +172,7 @@ export function useAcidRainSocket(
       socket.off('opponent_disconnected', onOpponentDisconnected);
       socket.off('opponent_reconnected', onOpponentReconnected);
       socket.off('state_sync', onStateSync);
+      socket.off('opponent_typing', onOpponentTyping);
     };
   }, [socket]);
 
@@ -179,5 +187,18 @@ export function useAcidRainSocket(
     [socket, roomId, mode],
   );
 
-  return { connectionState, submitWord };
+  const throttleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sendTypingProgress = useCallback(
+    (partialText: string) => {
+      if (mode === 'spectator' || !socket) return;
+      if (throttleTimerRef.current) return;
+      socket.emit('typing_progress', { roomId, partialText });
+      throttleTimerRef.current = setTimeout(() => {
+        throttleTimerRef.current = null;
+      }, 100);
+    },
+    [socket, roomId, mode],
+  );
+
+  return { connectionState, submitWord, sendTypingProgress };
 }

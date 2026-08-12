@@ -129,6 +129,9 @@ export interface AcidRainServerEvents {
     now: string;
   }) => void;
 
+  /** 상대방 실시간 입력 진행도 — partialText가 빈 문자열이면 초기화 (#71) */
+  opponent_typing: (data: { participantId: string; partialText: string }) => void;
+
   opponent_disconnected: (data: { userId: string; graceMs: number }) => void;
   opponent_reconnected:  (data: { userId: string }) => void;
   match_end:             (data: MatchEndData) => void;
@@ -138,11 +141,13 @@ export interface AcidRainServerEvents {
 // ── Client → Server ──────────────────────────────────────────────────────────
 
 export interface AcidRainClientEvents {
-  join_room:     (payload: { roomId: string }) => void;
-  leave_room:    (payload: { roomId: string }) => void;
-  word_submit:   (payload: { roomId: string; wordId: string; text: string; clientTs: number; attemptId: string }) => void;
-  /** 관전 입장 — room.players에는 등록되지 않는다 (deploy#70) */
-  spectate_room: (payload: { roomId: string }) => void;
-  /** 관전 종료(인앱 이동 등) — 소켓 disconnect를 기다리지 않고 즉시 정리 (deploy#70) */
-  leave_spectate: (payload: { roomId: string }) => void;
+  join_room:       (payload: { roomId: string }) => void;
+  leave_room:      (payload: { roomId: string }) => void;
+  word_submit:     (payload: { roomId: string; wordId: string; text: string; clientTs: number; attemptId: string }) => void;
+  /** 실시간 입력 진행도 전송 (#71) */
+  typing_progress: (payload: { roomId: string; partialText: string }) => void;
+  /** 관전 입장 — room.players에는 등록되지 않는다 (#70) */
+  spectate_room:   (payload: { roomId: string }) => void;
+  /** 관전 종료(인앱 이동 등) (#70) */
+  leave_spectate:  (payload: { roomId: string }) => void;
 }

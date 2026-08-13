@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import { LobbySocket } from '../api/lobbySocket';
-import { fetchMyProfile, fetchUserProfile, sendFriendRequest, getFriends, getValidAccessToken } from '../api/client';
+import { fetchMyProfile, fetchUserProfile, sendFriendRequest, getFriends, getSentRequests, getValidAccessToken } from '../api/client';
 import type { Room } from '../types/lobby';
 import type { PublicUserProfile } from '../types/user';
 import type { Friend } from '../types/friend';
@@ -21,7 +21,9 @@ export default function WaitingRoomPage() {
   const [otherAvatars, setOtherAvatars] = useState<Record<string, string | null>>({});
   const [selectedPlayer, setSelectedPlayer] = useState<{ userId: string; profile: PublicUserProfile } | null>(null);
   const [isAlreadyFriend, setIsAlreadyFriend] = useState(false);
+  const [isPendingRequest, setIsPendingRequest] = useState(false);
   const [friendStatus, setFriendStatus] = useState<'idle' | 'sent' | 'failed'>('idle');
+  const [friendErrorMsg, setFriendErrorMsg] = useState('');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set());
@@ -125,20 +127,39 @@ export default function WaitingRoomPage() {
 
   const openPlayerProfile = async (userId: string) => {
     try {
-      const [profile, friends] = await Promise.all([
+      const [profile, friends, sentRequests] = await Promise.all([
         fetchUserProfile(userId),
         getFriends(),
+        getSentRequests(),
       ]);
       setSelectedPlayer({ userId, profile });
       setIsAlreadyFriend(friends.some(f => f.id === userId));
+      setIsPendingRequest(sentRequests.some(r => r.receiver.id === userId));
       setFriendStatus('idle');
+      setFriendErrorMsg('');
     } catch { /* ignore */ }
   };
 
   const handleAddFriend = async () => {
     if (!selectedPlayer) return;
-    try { await sendFriendRequest(selectedPlayer.userId); setFriendStatus('sent'); }
-    catch { setFriendStatus('failed'); }
+    try {
+      await sendFriendRequest(selectedPlayer.userId);
+      setFriendStatus('sent');
+    } catch (error) {
+      setFriendStatus('failed');
+      if (error instanceof Error) {
+        switch (error.message) {
+          case 'Already friends':
+            setIsAlreadyFriend(true);
+            break;
+          case 'Friend request already exists':
+            setIsPendingRequest(true);
+            break;
+          default:
+            setFriendErrorMsg('요청 실패: 잠시 후 다시 시도해주세요.');
+        }
+      }
+    }
   };
 
   if (isConnecting) {
@@ -299,12 +320,17 @@ export default function WaitingRoomPage() {
                 </div>
               ))}
             </div>
-            {!isAlreadyFriend && friendStatus === 'idle' && (
+            {!isAlreadyFriend && !isPendingRequest && friendStatus === 'idle' && (
               <button onClick={handleAddFriend} style={PS.addBtn}>친구 추가</button>
             )}
-            {(isAlreadyFriend || friendStatus === 'sent') && (
+            {(isAlreadyFriend || isPendingRequest || friendStatus === 'sent') && (
               <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#5c6a8a', textAlign: 'center' as const, marginTop: 8 }}>
-                {isAlreadyFriend ? '이미 친구입니다' : '친구 요청을 보냈습니다'}
+                {isAlreadyFriend ? '이미 친구입니다' : friendStatus === 'sent' ? '친구 요청을 보냈습니다' : '이미 친구 요청을 보냈습니다'}
+              </div>
+            )}
+            {friendStatus === 'failed' && friendErrorMsg && (
+              <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#ef4a63', textAlign: 'center' as const, marginTop: 8 }}>
+                {friendErrorMsg}
               </div>
             )}
             <button onClick={() => setSelectedPlayer(null)} style={PS.closeBtn}>닫기</button>

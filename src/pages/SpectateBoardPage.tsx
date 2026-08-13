@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAcidRainSocket } from '../hooks/useAcidRainSocket';
+import { useOpponentTypingState } from '../hooks/useOpponentTypingState';
 import { useWordFontSize } from '../hooks/useWordFontSize';
 import { fetchMyProfile } from '../api/client';
+import { useAiMonitorBridge } from '../hooks/useAiMonitorBridge';
+import AiMonitorButton from '../components/game/AiMonitorButton';
 import ChatPanel from '../components/ChatPanel';
 import type { FallingWord, MatchEndData, GamePhase, ParticipantState, HpByParticipantId } from '../types/acidRain';
 
@@ -72,7 +75,6 @@ export default function SpectateBoardPage() {
   const [disconnectedParticipant, setDisconnectedParticipant] = useState(false);
   const [flashByParticipantId, setFlashByParticipantId] = useState<Record<string, boolean>>({});
   const [notSpectatable, setNotSpectatable] = useState(false);
-  const [opponentTyping, setOpponentTyping] = useState<Record<string, string>>({});
 
   const { fontSize } = useWordFontSize();
 
@@ -80,6 +82,8 @@ export default function SpectateBoardPage() {
   const clockOffsetRef    = useRef(0);
   const serverStartAtRef  = useRef(0);
   const myUserIdRef       = useRef('');
+  const { aiTyping, legacyTyping, startMatch, endMatch, activateFromStateSync, applyTyping } = useOpponentTypingState(roomId ?? '', participants);
+  const monitor = useAiMonitorBridge(roomId ?? '');
 
   useEffect(() => {
     fetchMyProfile()
@@ -122,13 +126,17 @@ export default function SpectateBoardPage() {
     setParticipants(prev => prev.map(p => (p.participantId in hp ? { ...p, hp: hp[p.participantId] } : p)));
   }, []);
 
-  const handleMatchReady = useCallback((data: ParticipantState[]) => {
+  const handleMatchReady = useCallback((data: Parameters<import('../types/acidRain').AcidRainServerEvents['match_ready']>[0]) => {
+    if (data.roomId !== roomId) return;
+    monitor.onMatchReady(data);
+    startMatch(data.roomId, data.participants);
     setPhase('COUNTDOWN');
     setCountdown(3);
-    setParticipants(data);
-  }, []);
+    setParticipants(data.participants);
+  }, [roomId, startMatch, monitor]);
 
   const handleMatchStart = useCallback((startAt: string, now: string, initialHp: number) => {
+    monitor.onMatchStart(startAt);
     clockOffsetRef.current = Date.parse(now) - Date.now();
     serverStartAtRef.current = Date.parse(startAt);
     const msUntilStart = serverStartAtRef.current - (Date.now() + clockOffsetRef.current);
@@ -140,7 +148,7 @@ export default function SpectateBoardPage() {
     };
     if (msUntilStart > 0) setTimeout(startGame, msUntilStart);
     else startGame();
-  }, [startTimer]);
+  }, [monitor, startTimer]);
 
   const handleWordSpawn = useCallback((word: FallingWord) => {
     setWords(prev => [...prev, word]);
@@ -171,11 +179,13 @@ export default function SpectateBoardPage() {
   }, []);
 
   const handleMatchEnd = useCallback((data: MatchEndData) => {
+    monitor.onMatchEnd();
+    endMatch();
     if (timerRef.current) clearInterval(timerRef.current);
     setPhase('FINISHED');
     setWords([]);
     setEndData(data);
-  }, []);
+  }, [endMatch, monitor]);
 
   const handleOpponentDisconnected = useCallback(() => {
     setDisconnectedParticipant(true);
@@ -186,6 +196,7 @@ export default function SpectateBoardPage() {
   }, []);
 
   const handleStateSync = useCallback((data: Parameters<import('../types/acidRain').AcidRainServerEvents['state_sync']>[0]) => {
+    activateFromStateSync(data.roomId, data.participants);
     const clockOffset = Date.parse(data.now) - Date.now();
     clockOffsetRef.current = clockOffset;
     serverStartAtRef.current = Date.parse(data.now) - data.elapsedMs;
@@ -197,7 +208,7 @@ export default function SpectateBoardPage() {
     setWords(restored);
     setPhase('IN_PROGRESS');
     startTimer();
-  }, [startTimer]);
+  }, [activateFromStateSync, startTimer]);
 
   const { connectionState } = useAcidRainSocket(
     roomId ?? '',
@@ -212,9 +223,8 @@ export default function SpectateBoardPage() {
       onOpponentDisconnected: handleOpponentDisconnected,
       onOpponentReconnected: handleOpponentReconnected,
       onStateSync: handleStateSync,
-      onOpponentTyping: useCallback((participantId: string, partialText: string) => {
-        setOpponentTyping(prev => ({ ...prev, [participantId]: partialText }));
-      }, []),
+      onOpponentTyping: applyTyping,
+      onAiMonitorSnapshot: monitor.onSnapshot,
     },
     'spectator',
   );
@@ -279,6 +289,9 @@ export default function SpectateBoardPage() {
               {fmtTime(remaining)}
             </span>
           </div>
+          {participants.some(participant => participant.type === 'AI') && roomId && (
+            <AiMonitorButton roomId={roomId} onOpen={monitor.openMonitor} />
+          )}
         </div>
 
         {/* 참가자 HP — 관전자에게는 "나"가 없으므로 양쪽 다 동일한 패널로 렌더링 */}
@@ -308,11 +321,18 @@ export default function SpectateBoardPage() {
                   </div>
                   {/* 실시간 입력 진행도 (#85) */}
                   {phase === 'IN_PROGRESS' && (() => {
-                    const partial = opponentTyping[p.participantId] ?? '';
-                    if (!partial) return null;
+                    const ai = aiTyping[p.participantId];
+                    const partial = ai?.partialText ?? legacyTyping[p.participantId] ?? '';
+                    if (!partial && !ai) return null;
+                    const progress = ai && ai.totalKeystrokes > 0
+                      ? Math.min(100, (ai.completedKeystrokes / ai.totalKeystrokes) * 100)
+                      : 0;
                     return (
-                      <div style={{ marginTop: 4, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#12c8a8', opacity: 0.85, letterSpacing: 0.5 }}>
+                      <div style={{ marginTop: 4, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: ai ? '#b47cff' : '#12c8a8', opacity: 0.85, letterSpacing: 0.5, position: 'relative' }}>
+                        {ai && <span style={{ marginRight: 6 }}>{ai.phase}</span>}
                         {partial}
+                        {ai && ai.totalKeystrokes > 0 && <span style={{ marginLeft: 6 }}>{ai.completedKeystrokes}/{ai.totalKeystrokes}</span>}
+                        {ai && <span style={{ display: 'block', height: 2, marginTop: 3, background: '#b47cff', width: `${progress}%`, transition: 'width .1s' }} />}
                       </div>
                     );
                   })()}
@@ -347,7 +367,13 @@ export default function SpectateBoardPage() {
                 animationDelay: `${word.renderDelayMs}ms`,
                 padding: '5px 10px 4px',
                 borderRadius: 8,
-                border: `1px solid ${keystrokeColor(word.keystrokes)}55`,
+                border: (() => {
+                  const ai = participants.map(p => aiTyping[p.participantId]).find(state => state?.wordId === word.wordId);
+                  if (ai?.phase === 'REACTION') return '1px dashed #b47cff';
+                  if (ai?.phase === 'TYPING') return '1px solid #b47cff';
+                  if (ai?.phase === 'CORRECTING') return '1px solid #f0a6ff';
+                  return `1px solid ${keystrokeColor(word.keystrokes)}55`;
+                })(),
                 background: `${keystrokeColor(word.keystrokes)}14`,
                 color: keystrokeColor(word.keystrokes),
                 fontFamily: "'JetBrains Mono', monospace",

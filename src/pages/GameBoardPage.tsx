@@ -61,6 +61,7 @@ export default function GameBoardPage() {
 
   // ── Identity ─────────────────────────────────────────────────────────────
   const [myNickname, setMyNickname] = useState('');
+  const [myAvatar, setMyAvatar]     = useState('');
   const myUserIdRef      = useRef('');
 
   // ── Game state ────────────────────────────────────────────────────────────
@@ -124,7 +125,7 @@ export default function GameBoardPage() {
   // ── Profile fetch ─────────────────────────────────────────────────────────
   useEffect(() => {
     fetchMyProfile()
-      .then(p => { myUserIdRef.current = p.id; setMyNickname(p.nickname); })
+      .then(p => { myUserIdRef.current = p.id; setMyNickname(p.nickname); setMyAvatar(p.avatar ?? ''); })
       .catch(() => navigate('/login', { replace: true }));
   }, [navigate]);
 
@@ -267,6 +268,19 @@ export default function GameBoardPage() {
     sendTypingProgress('', undefined);
   }, [input, matchedIds, submitWord, sendTypingProgress]);
 
+  // ── Avatar helper ─────────────────────────────────────────────────────────
+  const avatarFor = (p: { avatar?: string; type: string }, fallbackSrc?: string, borderColor?: string) => {
+    const src = p.avatar || fallbackSrc || '';
+    const color = borderColor ?? (p.type === 'HUMAN' ? '#ef4a63' : '#12c8a8');
+    return (
+      <div style={{ ...S.avatar, borderColor: color }}>
+        {src ? (
+          <img src={src} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+        ) : null}
+      </div>
+    );
+  };
+
   // ── Derived ───────────────────────────────────────────────────────────────
   const myId = myUserIdRef.current;
   const myPlayer = players.find(p => p.participantId === myId) ?? { participantId: myId, nickname: myNickname || '나', type: 'HUMAN' as const, hp: MAX_HP };
@@ -343,7 +357,7 @@ export default function GameBoardPage() {
           <div style={S.hpZone}>
             {otherPlayers.length === 0 && phase === 'WAITING' && (
               <div style={S.playerRow}>
-                <div style={{ ...S.avatar, borderColor: '#ef4a63' }} />
+                {avatarFor({ type: 'HUMAN' })}
                 <div style={{ flex: 1 }}>
                   <div style={S.nickname}>상대방</div>
                 </div>
@@ -357,7 +371,7 @@ export default function GameBoardPage() {
                   key={p.participantId}
                   style={{ ...S.playerRow, background: flashByUserId[p.participantId] ? 'rgba(239,74,99,.1)' : 'transparent', transition: 'background .15s', opacity: eliminated ? 0.5 : 1, borderRadius: 8 }}
                 >
-                  <div style={{ ...S.avatar, borderColor: eliminated ? '#5c6a8a' : '#ef4a63' }} />
+                  {avatarFor(p, undefined, eliminated ? '#5c6a8a' : '#ef4a63')}
                   <div style={{ flex: 1 }}>
                     <div style={S.nickname}>{p.nickname}{eliminated ? ` · 탈락 #${p.rank}` : ''}</div>
                     <div style={S.hpRow}>
@@ -466,7 +480,7 @@ export default function GameBoardPage() {
           {/* My HP + input */}
           <div style={{ ...S.hpZone, background: flashByUserId[myId] ? 'rgba(239,74,99,.1)' : 'transparent', transition: 'background .15s' }}>
             <div style={S.playerRow}>
-              <div style={{ ...S.avatar, borderColor: '#12c8a8' }} />
+              {avatarFor(myPlayer, myAvatar, '#12c8a8')}
               <div style={{ flex: 1 }}>
                 <div style={S.nickname}>{myPlayer.nickname}</div>
                 <div style={S.hpRow}>

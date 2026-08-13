@@ -9,6 +9,19 @@ import type { FallingWord, MatchEndData, GamePhase, ParticipantState, HpByPartic
 const MAX_HP = 100;
 const MATCH_DURATION = 180;
 
+// fall 키프레임(translateY(-60px) → translateY(calc(100vh - 40px)))과 정확히 같은 값을
+// 써야 한다 — 정답 처리 순간 현재 낙하 위치를 계산해 pop-out 애니메이션에 그대로
+// 넘겨주기 위함(#93: 안 그러면 위치가 top으로 리셋된 채 사라지는 것처럼 보임).
+const FALL_START_Y = -60;
+const FALL_END_Y_OFFSET = 40;
+
+// 단어의 현재(정답 처리 시점) 낙하 위치를 fall 애니메이션과 동일한 공식으로 계산한다.
+function currentFallY(animStartAt: number, fallDurationMs: number): number {
+  const endY = window.innerHeight - FALL_END_Y_OFFSET;
+  const fraction = Math.min(Math.max((Date.now() - animStartAt) / fallDurationMs, 0), 1);
+  return FALL_START_Y + fraction * (endY - FALL_START_Y);
+}
+
 // ── 낙하 단어 색상 — keystrokes 구간 기준 (GAME_DESIGN.md §3.2 LOW/MID/HIGH) ───
 function keystrokeColor(keystrokes: number) {
   if (keystrokes <= 5) return '#12c8a8';
@@ -32,7 +45,7 @@ if (!document.getElementById(styleId)) {
     @keyframes fall { from { transform: translateY(-60px); } to { transform: translateY(calc(100vh - 40px)); } }
     @keyframes flash-green { 0%,100% { background: transparent; } 50% { background: rgba(18,200,168,.18); } }
     @keyframes flash-red   { 0%,100% { background: transparent; } 50% { background: rgba(239,74,99,.18); } }
-    @keyframes pop-out { 0% { opacity:1; transform:scale(1); } 100% { opacity:0; transform:scale(1.6); } }
+    @keyframes pop-out { 0% { opacity:1; transform: translateY(var(--fall-y, 0px)) scale(1); } 100% { opacity:0; transform: translateY(var(--fall-y, 0px)) scale(1.6); } }
     @keyframes shrink-bar { from { width: 100%; } to { width: 0%; } }
     .word-chip { animation: fall linear forwards; position: absolute; cursor: default; user-select: none; }
     .word-chip.matched { animation: pop-out .25s ease forwards !important; }
@@ -70,6 +83,8 @@ export default function GameBoardPage() {
   const [elapsed, setElapsed]     = useState(0);
   const [words, setWords]         = useState<FallingWord[]>([]);
   const [matchedIds, setMatchedIds] = useState<Set<string>>(new Set());
+  /** wordId → 정답 처리 순간의 낙하 위치(px) — pop-out 애니메이션이 그 지점에서 시작하도록 고정 */
+  const [frozenYById, setFrozenYById] = useState<Record<string, number>>({});
   const [endData, setEndData]     = useState<(MatchEndData & { isWinner: boolean }) | null>(null);
   // 강제 탈락/승리 처리 데드라인은 없다 — 그냥 정보성 배너다(backend#161).
   const [disconnectedOpponent, setDisconnectedOpponent] = useState(false);
@@ -166,10 +181,15 @@ export default function GameBoardPage() {
   }, []);
 
   const handleWordCleared = useCallback((wordId: string, _clearedBy: string, targetParticipantId: string, _damage: number, hp: HpByParticipantId) => {
+    const word = wordsRef.current.find(w => w.wordId === wordId);
+    if (word) {
+      setFrozenYById(prev => ({ ...prev, [wordId]: currentFallY(word.animStartAt, word.fallDurationMs) }));
+    }
     setMatchedIds(prev => new Set([...prev, wordId]));
     setTimeout(() => {
       setWords(prev => prev.filter(w => w.wordId !== wordId));
       setMatchedIds(prev => { const n = new Set(prev); n.delete(wordId); return n; });
+      setFrozenYById(prev => { const rest = { ...prev }; delete rest[wordId]; return rest; });
     }, 300);
     applyHp(hp);
     // 실제로 맞은 대상 한 명만 하이라이팅한다 — hp 맵은 전원의 최신 HP를 담고 있을 뿐,
@@ -412,6 +432,11 @@ export default function GameBoardPage() {
                   // animStartAt이 과거(재접속 복원)면 음수 delay로 애니메이션을 이미 진행된
                   // 지점으로 점프시켜, 새로 낙하가 시작된 것처럼 보이지 않도록 한다.
                   animationDelay: `${word.renderDelayMs}ms`,
+                  // 정답 처리된 단어는 pop-out이 그 순간의 낙하 위치에서 시작하도록 고정
+                  // (그렇지 않으면 fall→pop-out 전환 시 transform이 top으로 리셋된다).
+                  ...(matchedIds.has(word.wordId) && word.wordId in frozenYById
+                    ? { '--fall-y': `${frozenYById[word.wordId]}px` }
+                    : {}),
                   padding: '5px 10px 4px',
                   borderRadius: 8,
                   border: `1px solid ${keystrokeColor(word.keystrokes)}55`,

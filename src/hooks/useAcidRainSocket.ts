@@ -4,13 +4,12 @@ import type {
   AcidRainServerEvents,
   FallingWord,
   MatchEndData,
-  ParticipantState,
   HpByParticipantId,
 } from '../types/acidRain';
 
 export interface AcidRainHandlers {
   /** 전원 입장 완료 — HUMAN/AI 공통 participants[] (backend#138) */
-  onMatchReady?: (participants: ParticipantState[]) => void;
+  onMatchReady?: (data: Parameters<AcidRainServerEvents['match_ready']>[0]) => void;
   onMatchStart?: (startAt: string, now: string, initialHp: number) => void;
   onWordSpawn?: (word: FallingWord) => void;
   onWordCleared?: (wordId: string, clearedBy: string, targetParticipantId: string, damage: number, hp: HpByParticipantId) => void;
@@ -23,7 +22,7 @@ export interface AcidRainHandlers {
   onOpponentReconnected?: (userId: string) => void;
   onStateSync?: (data: Parameters<AcidRainServerEvents['state_sync']>[0]) => void;
   /** 상대방 실시간 입력 진행도 (#71) */
-  onOpponentTyping?: (participantId: string, partialText: string) => void;
+  onOpponentTyping?: (data: Parameters<AcidRainServerEvents['opponent_typing']>[0]) => void;
 }
 
 function calcClockOffset(serverNow: string): number {
@@ -37,7 +36,9 @@ export function useAcidRainSocket(
 ) {
   const { socket, connectionState, connect } = useGameSocketContext();
   const handlersRef = useRef(handlers);
-  handlersRef.current = handlers;
+  useEffect(() => {
+    handlersRef.current = handlers;
+  }, [handlers]);
 
   const clockOffsetRef = useRef<number>(0);
   // match_ready/state_sync 수신 여부 — 받기 전까지는 join_room을 주기적으로 재전송한다.
@@ -98,7 +99,7 @@ export function useAcidRainSocket(
 
     const onMatchReady = (data: Parameters<AcidRainServerEvents['match_ready']>[0]) => {
       joinedRef.current = true;
-      handlersRef.current.onMatchReady?.(data.participants);
+      handlersRef.current.onMatchReady?.(data);
     };
 
     const onMatchStart = (data: Parameters<AcidRainServerEvents['match_start']>[0]) => {
@@ -153,7 +154,7 @@ export function useAcidRainSocket(
     };
 
     const onOpponentTyping = (data: Parameters<AcidRainServerEvents['opponent_typing']>[0]) => {
-      handlersRef.current.onOpponentTyping?.(data.participantId, data.partialText);
+      handlersRef.current.onOpponentTyping?.(data);
     };
 
     socket.on('match_ready', onMatchReady);

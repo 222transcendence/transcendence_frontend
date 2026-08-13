@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { fetchMyProfile } from '../api/client';
 import ChatPanel from '../components/ChatPanel';
 import { useAcidRainSocket } from '../hooks/useAcidRainSocket';
+import { useOpponentTypingState } from '../hooks/useOpponentTypingState';
 import { useWordFontSize } from '../hooks/useWordFontSize';
 import type { FallingWord, MatchEndData, GamePhase, ParticipantState, HpByParticipantId } from '../types/acidRain';
 
@@ -76,8 +77,6 @@ export default function GameBoardPage() {
   const [leaveConfirm, setLeaveConfirm] = useState(false);
   const [flashByUserId, setFlashByUserId] = useState<Record<string, boolean>>({});
   const [inputError, setInputError] = useState(false);
-  /** participantId → 현재 입력 중인 텍스트 (상대방 실시간 진행도 #71) */
-  const [opponentTyping, setOpponentTyping] = useState<Record<string, string>>({});
 
   // ── Input ─────────────────────────────────────────────────────────────────
   const [input, setInput]     = useState('');
@@ -87,6 +86,7 @@ export default function GameBoardPage() {
 
   // ── Word font size (+/- 키, localStorage 저장) ───────────────────────────────
   const { fontSize, increase: increaseFontSize, decrease: decreaseFontSize } = useWordFontSize();
+  const { aiTyping, legacyTyping, startMatch, endMatch, activateFromStateSync, applyTyping } = useOpponentTypingState(roomId ?? '', players);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -140,11 +140,13 @@ export default function GameBoardPage() {
     setPlayers(prev => prev.map(p => (p.participantId in hp ? { ...p, hp: hp[p.participantId] } : p)));
   }, []);
 
-  const handleMatchReady = useCallback((participants: ParticipantState[]) => {
+  const handleMatchReady = useCallback((data: Parameters<import('../types/acidRain').AcidRainServerEvents['match_ready']>[0]) => {
+    if (data.roomId !== roomId) return;
+    startMatch(data.roomId, data.participants);
     setPhase('COUNTDOWN');
     setCountdown(3);
-    setPlayers(participants);
-  }, []);
+    setPlayers(data.participants);
+  }, [roomId, startMatch]);
 
   const handleMatchStart = useCallback((startAt: string, now: string, initialHp: number) => {
     clockOffsetRef.current = Date.parse(now) - Date.now();
@@ -198,12 +200,13 @@ export default function GameBoardPage() {
   }, []);
 
   const handleMatchEnd = useCallback((data: MatchEndData) => {
+    endMatch();
     if (timerRef.current) clearInterval(timerRef.current);
     setPhase('FINISHED');
     setWords([]);
     const isWinner = data.winnerId === myUserIdRef.current;
     setEndData({ ...data, isWinner });
-  }, []);
+  }, [endMatch]);
 
   const handleOpponentDisconnected = useCallback(() => {
     setDisconnectedOpponent(true);
@@ -214,6 +217,7 @@ export default function GameBoardPage() {
   }, []);
 
   const handleStateSync = useCallback((data: Parameters<import('../types/acidRain').AcidRainServerEvents['state_sync']>[0]) => {
+    activateFromStateSync(data.roomId, data.participants);
     const clockOffset = Date.parse(data.now) - Date.now();
     clockOffsetRef.current = clockOffset;
     // 서버 현재시각(now) - 경과시간(elapsedMs) = 서버 기준 매치 시작 시각
@@ -226,7 +230,7 @@ export default function GameBoardPage() {
     setWords(restored);
     setPhase('IN_PROGRESS');
     startTimer();
-  }, [startTimer]);
+  }, [activateFromStateSync, startTimer]);
 
   const { connectionState, submitWord, sendTypingProgress } = useAcidRainSocket(roomId ?? '', {
     onMatchReady: handleMatchReady,
@@ -240,9 +244,7 @@ export default function GameBoardPage() {
     onOpponentDisconnected: handleOpponentDisconnected,
     onOpponentReconnected: handleOpponentReconnected,
     onStateSync: handleStateSync,
-    onOpponentTyping: useCallback((participantId: string, partialText: string) => {
-      setOpponentTyping(prev => ({ ...prev, [participantId]: partialText }));
-    }, []),
+    onOpponentTyping: applyTyping,
   });
 
   // ── Input submit: 엔터 키로 제출 (#86) ──────────────────────────────────
@@ -369,11 +371,18 @@ export default function GameBoardPage() {
                     </div>
                     {/* 상대방 실시간 입력 진행도 — Option B: 입력 문자열 직접 표시 (#71) */}
                     {phase === 'IN_PROGRESS' && (() => {
-                      const partial = opponentTyping[p.participantId] ?? '';
-                      if (!partial) return null;
+                      const ai = aiTyping[p.participantId];
+                      const partial = ai?.partialText ?? legacyTyping[p.participantId] ?? '';
+                      if (!partial && !ai) return null;
+                      const progress = ai && ai.totalKeystrokes > 0
+                        ? Math.min(100, (ai.completedKeystrokes / ai.totalKeystrokes) * 100)
+                        : 0;
                       return (
-                        <div style={S.typingProgress}>
+                        <div style={{ ...S.typingProgress, color: ai ? '#b47cff' : '#12c8a8', borderColor: ai ? '#b47cff88' : undefined }}>
+                          {ai && <span style={S.aiPhase}>{ai.phase}</span>}
                           <span style={S.typingBlocks}>{partial}</span>
+                          {ai && ai.totalKeystrokes > 0 && <span style={S.aiProgress}>{ai.completedKeystrokes}/{ai.totalKeystrokes}</span>}
+                          {ai && <span style={{ ...S.aiProgressBar, width: `${progress}%` }} />}
                         </div>
                       );
                     })()}
@@ -414,7 +423,13 @@ export default function GameBoardPage() {
                   animationDelay: `${word.renderDelayMs}ms`,
                   padding: '5px 10px 4px',
                   borderRadius: 8,
-                  border: `1px solid ${keystrokeColor(word.keystrokes)}55`,
+                  border: (() => {
+                    const ai = otherPlayers.map(p => aiTyping[p.participantId]).find(state => state?.wordId === word.wordId);
+                    if (ai?.phase === 'REACTION') return '1px dashed #b47cff';
+                    if (ai?.phase === 'TYPING') return '1px solid #b47cff';
+                    if (ai?.phase === 'CORRECTING') return '1px solid #f0a6ff';
+                    return `1px solid ${keystrokeColor(word.keystrokes)}55`;
+                  })(),
                   background: `${keystrokeColor(word.keystrokes)}14`,
                   color: keystrokeColor(word.keystrokes),
                   fontFamily: "'JetBrains Mono', monospace",
@@ -629,6 +644,23 @@ const S = {
     color: '#12c8a8',
     letterSpacing: 0.5,
     opacity: 0.85,
+  },
+  aiPhase: {
+    fontSize: 9,
+    opacity: 0.8,
+  },
+  aiProgress: {
+    fontSize: 9,
+    opacity: 0.8,
+    marginLeft: 'auto',
+  },
+  aiProgressBar: {
+    position: 'absolute' as const,
+    left: 0,
+    bottom: -2,
+    height: 2,
+    background: '#b47cff',
+    transition: 'width .1s',
   },
   rainArea: {
     flex: 1,

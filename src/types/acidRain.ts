@@ -2,6 +2,17 @@ export type GamePhase = 'WAITING' | 'COUNTDOWN' | 'IN_PROGRESS' | 'FINISHED';
 export type EndReason = 'KO' | 'TIME_LIMIT' | 'FORFEIT';
 export type ParticipantType = 'HUMAN' | 'AI';
 export type AiDifficulty = 'BEGINNER' | 'NORMAL' | 'HARD';
+export type OpponentTypingPhase = 'IDLE' | 'REACTION' | 'TYPING' | 'CORRECTING';
+
+export interface OpponentTypingPayload {
+  participantId: string;
+  partialText: string;
+  wordId?: string;
+  completedKeystrokes?: number;
+  totalKeystrokes?: number;
+  phase?: OpponentTypingPhase;
+  stateVersion?: number;
+}
 
 export interface ParticipantPublic {
   participantId: string;
@@ -131,7 +142,7 @@ export interface AcidRainServerEvents {
   }) => void;
 
   /** 상대방 실시간 입력 진행도 — partialText가 빈 문자열이면 초기화 (#71) */
-  opponent_typing: (data: { participantId: string; partialText: string }) => void;
+  opponent_typing: (data: OpponentTypingPayload) => void;
 
   /** 강제 탈락/승리 처리 데드라인은 없다 — 언제든 재접속 가능하고, 매치 자체에 이미
    *  하드 타임아웃이 있다(backend#161) */

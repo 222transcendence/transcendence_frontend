@@ -400,19 +400,22 @@ export default function GameBoardPage() {
               </div>
             )}
 
-            {/* Falling words — 레인마다 고정 폭 컬럼을 배정해 옆 레인과 겹치지 않게 한다 */}
+            {/* Falling words — 레인마다 고정 폭 컬럼을 배정해 옆 레인과 겹치지 않게 하되,
+                글자 크기(+/- 조절)가 우선이므로 블록은 내용/폰트에 맞춰 늘어난다(#98). */}
             {words.map(word => (
               <div
                 key={word.wordId}
                 className={`word-chip${matchedIds.has(word.wordId) ? ' matched' : ''}`}
                 style={{
                   left: `calc(${word.lane} * 18%)`,
-                  width: '16%',
+                  minWidth: '16%',
+                  width: 'max-content',
+                  maxWidth: '34%',
                   animationDuration: `${word.fallDurationMs}ms`,
                   // animStartAt이 과거(재접속 복원)면 음수 delay로 애니메이션을 이미 진행된
                   // 지점으로 점프시켜, 새로 낙하가 시작된 것처럼 보이지 않도록 한다.
                   animationDelay: `${word.renderDelayMs}ms`,
-                  padding: '5px 10px 4px',
+                  padding: `${fontSize * 0.3}px ${fontSize * 0.6}px ${fontSize * 0.24}px`,
                   borderRadius: 8,
                   border: `1px solid ${keystrokeColor(word.keystrokes)}55`,
                   background: `${keystrokeColor(word.keystrokes)}14`,
@@ -420,8 +423,6 @@ export default function GameBoardPage() {
                   fontFamily: "'JetBrains Mono', monospace",
                   fontWeight: 700,
                   fontSize,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
                   boxShadow: `0 0 12px ${keystrokeColor(word.keystrokes)}44`,
                   letterSpacing: '.04em',

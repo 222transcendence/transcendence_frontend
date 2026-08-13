@@ -121,6 +121,17 @@ export default function GameBoardPage() {
 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
+  // ── Countdown 3→2→1 표시 — phase가 COUNTDOWN인 동안만 1초마다 감소.
+  // 실제 매치 시작 타이밍은 서버의 match_start(msUntilStart)를 그대로 따르므로,
+  // 이 카운트다운은 순수 표시용이다(handleMatchStart 참고).
+  useEffect(() => {
+    if (phase !== 'COUNTDOWN') return;
+    const interval = setInterval(() => {
+      setCountdown(prev => (prev === null || prev <= 1 ? null : prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [phase]);
+
   // ── Profile fetch ─────────────────────────────────────────────────────────
   useEffect(() => {
     fetchMyProfile()

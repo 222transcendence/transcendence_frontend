@@ -340,7 +340,10 @@ export default function GameBoardPage() {
                 <button style={S.ghostSm}  onClick={() => setLeaveConfirm(false)}>취소</button>
               </div>
             ) : (
-              <button style={S.dangerSm} onClick={() => setLeaveConfirm(true)}>⎋ 나가기</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button style={S.dangerSm} onClick={() => setLeaveConfirm(true)}>⎋ 나가기</button>
+                <span style={S.fontSizeHint}>+/- 글자 크기 조절</span>
+              </div>
             )}
             <div style={S.timerBox}>
               <span style={{ ...S.timerText, color: remaining <= 30 ? '#ef4a63' : '#e2e8f5' }}>
@@ -714,6 +717,12 @@ const S = {
     fontFamily: "'JetBrains Mono', monospace",
     fontSize: 11,
     color: '#c7cede',
+  },
+  fontSizeHint: {
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: 10,
+    color: '#5c6478',
+    whiteSpace: 'nowrap' as const,
   },
   dangerSm: {
     padding: '5px 11px',

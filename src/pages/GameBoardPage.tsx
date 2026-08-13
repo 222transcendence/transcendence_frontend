@@ -136,6 +136,17 @@ export default function GameBoardPage() {
 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
+  // ── Countdown 3→2→1 표시 — phase가 COUNTDOWN인 동안만 1초마다 감소.
+  // 실제 매치 시작 타이밍은 서버의 match_start(msUntilStart)를 그대로 따르므로,
+  // 이 카운트다운은 순수 표시용이다(handleMatchStart 참고).
+  useEffect(() => {
+    if (phase !== 'COUNTDOWN') return;
+    const interval = setInterval(() => {
+      setCountdown(prev => (prev === null || prev <= 1 ? null : prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [phase]);
+
   // ── Profile fetch ─────────────────────────────────────────────────────────
   useEffect(() => {
     fetchMyProfile()
@@ -349,7 +360,10 @@ export default function GameBoardPage() {
                 <button style={S.ghostSm}  onClick={() => setLeaveConfirm(false)}>취소</button>
               </div>
             ) : (
-              <button style={S.dangerSm} onClick={() => setLeaveConfirm(true)}>⎋ 나가기</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button style={S.dangerSm} onClick={() => setLeaveConfirm(true)}>⎋ 나가기</button>
+                <span style={S.fontSizeHint}>+/- 글자 크기 조절</span>
+              </div>
             )}
             <div style={S.timerBox}>
               <span style={{ ...S.timerText, color: remaining <= 30 ? '#ef4a63' : '#e2e8f5' }}>
@@ -420,14 +434,17 @@ export default function GameBoardPage() {
               </div>
             )}
 
-            {/* Falling words — 레인마다 고정 폭 컬럼을 배정해 옆 레인과 겹치지 않게 한다 */}
+            {/* Falling words — 레인마다 고정 폭 컬럼을 배정해 옆 레인과 겹치지 않게 하되,
+                글자 크기(+/- 조절)가 우선이므로 블록은 내용/폰트에 맞춰 늘어난다(#98). */}
             {words.map(word => (
               <div
                 key={word.wordId}
                 className={`word-chip${matchedIds.has(word.wordId) ? ' matched' : ''}`}
                 style={{
                   left: `calc(${word.lane} * 18%)`,
-                  width: '16%',
+                  minWidth: '16%',
+                  width: 'max-content',
+                  maxWidth: '34%',
                   animationDuration: `${word.fallDurationMs}ms`,
                   // animStartAt이 과거(재접속 복원)면 음수 delay로 애니메이션을 이미 진행된
                   // 지점으로 점프시켜, 새로 낙하가 시작된 것처럼 보이지 않도록 한다.
@@ -437,7 +454,7 @@ export default function GameBoardPage() {
                   ...(matchedIds.has(word.wordId) && word.wordId in frozenYById
                     ? { '--fall-y': `${frozenYById[word.wordId]}px` }
                     : {}),
-                  padding: '5px 10px 4px',
+                  padding: `${fontSize * 0.3}px ${fontSize * 0.6}px ${fontSize * 0.24}px`,
                   borderRadius: 8,
                   border: `1px solid ${keystrokeColor(word.keystrokes)}55`,
                   background: `${keystrokeColor(word.keystrokes)}14`,
@@ -445,8 +462,6 @@ export default function GameBoardPage() {
                   fontFamily: "'JetBrains Mono', monospace",
                   fontWeight: 700,
                   fontSize,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
                   boxShadow: `0 0 12px ${keystrokeColor(word.keystrokes)}44`,
                   letterSpacing: '.04em',
@@ -727,6 +742,12 @@ const S = {
     fontFamily: "'JetBrains Mono', monospace",
     fontSize: 11,
     color: '#c7cede',
+  },
+  fontSizeHint: {
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: 10,
+    color: '#5c6478',
+    whiteSpace: 'nowrap' as const,
   },
   dangerSm: {
     padding: '5px 11px',

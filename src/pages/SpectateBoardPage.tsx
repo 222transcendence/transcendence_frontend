@@ -4,6 +4,8 @@ import { useAcidRainSocket } from '../hooks/useAcidRainSocket';
 import { useOpponentTypingState } from '../hooks/useOpponentTypingState';
 import { useWordFontSize } from '../hooks/useWordFontSize';
 import { fetchMyProfile } from '../api/client';
+import { useAiMonitorBridge } from '../hooks/useAiMonitorBridge';
+import AiMonitorButton from '../components/game/AiMonitorButton';
 import ChatPanel from '../components/ChatPanel';
 import type { FallingWord, MatchEndData, GamePhase, ParticipantState, HpByParticipantId } from '../types/acidRain';
 
@@ -81,6 +83,7 @@ export default function SpectateBoardPage() {
   const serverStartAtRef  = useRef(0);
   const myUserIdRef       = useRef('');
   const { aiTyping, legacyTyping, startMatch, endMatch, activateFromStateSync, applyTyping } = useOpponentTypingState(roomId ?? '', participants);
+  const monitor = useAiMonitorBridge(roomId ?? '');
 
   useEffect(() => {
     fetchMyProfile()
@@ -125,13 +128,15 @@ export default function SpectateBoardPage() {
 
   const handleMatchReady = useCallback((data: Parameters<import('../types/acidRain').AcidRainServerEvents['match_ready']>[0]) => {
     if (data.roomId !== roomId) return;
+    monitor.onMatchReady(data);
     startMatch(data.roomId, data.participants);
     setPhase('COUNTDOWN');
     setCountdown(3);
     setParticipants(data.participants);
-  }, [roomId, startMatch]);
+  }, [roomId, startMatch, monitor]);
 
   const handleMatchStart = useCallback((startAt: string, now: string, initialHp: number) => {
+    monitor.onMatchStart(startAt);
     clockOffsetRef.current = Date.parse(now) - Date.now();
     serverStartAtRef.current = Date.parse(startAt);
     const msUntilStart = serverStartAtRef.current - (Date.now() + clockOffsetRef.current);
@@ -143,7 +148,7 @@ export default function SpectateBoardPage() {
     };
     if (msUntilStart > 0) setTimeout(startGame, msUntilStart);
     else startGame();
-  }, [startTimer]);
+  }, [monitor, startTimer]);
 
   const handleWordSpawn = useCallback((word: FallingWord) => {
     setWords(prev => [...prev, word]);
@@ -174,12 +179,13 @@ export default function SpectateBoardPage() {
   }, []);
 
   const handleMatchEnd = useCallback((data: MatchEndData) => {
+    monitor.onMatchEnd();
     endMatch();
     if (timerRef.current) clearInterval(timerRef.current);
     setPhase('FINISHED');
     setWords([]);
     setEndData(data);
-  }, [endMatch]);
+  }, [endMatch, monitor]);
 
   const handleOpponentDisconnected = useCallback(() => {
     setDisconnectedParticipant(true);
@@ -218,6 +224,7 @@ export default function SpectateBoardPage() {
       onOpponentReconnected: handleOpponentReconnected,
       onStateSync: handleStateSync,
       onOpponentTyping: applyTyping,
+      onAiMonitorSnapshot: monitor.onSnapshot,
     },
     'spectator',
   );
@@ -282,6 +289,9 @@ export default function SpectateBoardPage() {
               {fmtTime(remaining)}
             </span>
           </div>
+          {participants.some(participant => participant.type === 'AI') && roomId && (
+            <AiMonitorButton roomId={roomId} onOpen={monitor.openMonitor} />
+          )}
         </div>
 
         {/* 참가자 HP — 관전자에게는 "나"가 없으므로 양쪽 다 동일한 패널로 렌더링 */}

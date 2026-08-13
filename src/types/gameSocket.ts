@@ -82,6 +82,7 @@ export interface ServerToClientEvents {
   state_sync:            (data: Parameters<import('./acidRain').AcidRainServerEvents['state_sync']>[0]) => void;
   /** 상대방 실시간 입력 진행도 (#71) */
   opponent_typing:       (data: Parameters<import('./acidRain').AcidRainServerEvents['opponent_typing']>[0]) => void;
+  ai_monitor_snapshot:   (data: Parameters<import('./acidRain').AcidRainServerEvents['ai_monitor_snapshot']>[0]) => void;
 }
 
 // ─── Client-to-server event map ───────────────────────────────────────────────

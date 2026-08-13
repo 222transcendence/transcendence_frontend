@@ -3,6 +3,7 @@ export type EndReason = 'KO' | 'TIME_LIMIT' | 'FORFEIT';
 export type ParticipantType = 'HUMAN' | 'AI';
 export type AiDifficulty = 'BEGINNER' | 'NORMAL' | 'HARD';
 export type OpponentTypingPhase = 'IDLE' | 'REACTION' | 'TYPING' | 'CORRECTING';
+export type AiMonitorSnapshotKind = 'FULL' | 'DECISION' | 'PHASE' | 'TERMINAL';
 
 export interface OpponentTypingPayload {
   participantId: string;
@@ -12,6 +13,72 @@ export interface OpponentTypingPayload {
   totalKeystrokes?: number;
   phase?: OpponentTypingPhase;
   stateVersion?: number;
+}
+
+export interface AiMonitorDecision {
+  action: 'KEEP' | 'SWITCH' | 'ABANDON' | 'SELECT' | 'NO_TARGET';
+  phase: OpponentTypingPhase;
+  targetWordId: string | null;
+  previousTargetWordId: string | null;
+}
+
+export interface AiMonitorPlayerProfile {
+  wpm: number;
+  accuracy: number;
+  reactionTimeMs: number;
+  sampleCount: number;
+  confidence: number;
+  source: null;
+}
+
+export interface AiMonitorExecutionProfile {
+  difficulty: AiDifficulty;
+  typingWpm: number;
+  accuracy: number;
+  reactionDelayMs: number;
+  typoProbability: number;
+  correctionDelayMs: number;
+  abandonProbability: number;
+}
+
+export interface AiMonitorCandidate {
+  wordId: string;
+  utility: number | null;
+  successProbability: number | null;
+  urgency: number | null;
+  completionMs: number | null;
+  opportunityCost: number | null;
+  remainingMs: number;
+  eligible: boolean;
+  selected: boolean;
+}
+
+export interface AiMonitorSnapshot {
+  roomId: string;
+  participantId: string;
+  stateVersion: number;
+  timestamp: string;
+  kind: AiMonitorSnapshotKind;
+  currentDecision: AiMonitorDecision;
+  profile: AiMonitorPlayerProfile;
+  executionProfile: AiMonitorExecutionProfile;
+  candidates: AiMonitorCandidate[];
+  completedKeystrokes: number;
+  totalKeystrokes: number;
+}
+
+export interface AiMonitorSnapshotPatch {
+  roomId: string;
+  participantId: string;
+  stateVersion: number;
+  timestamp: string;
+  kind: AiMonitorSnapshotKind;
+  currentDecision?: AiMonitorDecision;
+  profile?: AiMonitorPlayerProfile;
+  executionProfile?: AiMonitorExecutionProfile;
+  candidates?: AiMonitorCandidate[];
+  completedKeystrokes?: number;
+  totalKeystrokes?: number;
 }
 
 export interface ParticipantPublic {
@@ -143,6 +210,8 @@ export interface AcidRainServerEvents {
 
   /** 상대방 실시간 입력 진행도 — partialText가 빈 문자열이면 초기화 (#71) */
   opponent_typing: (data: OpponentTypingPayload) => void;
+
+  ai_monitor_snapshot: (data: AiMonitorSnapshotPatch) => void;
 
   /** 강제 탈락/승리 처리 데드라인은 없다 — 언제든 재접속 가능하고, 매치 자체에 이미
    *  하드 타임아웃이 있다(backend#161) */

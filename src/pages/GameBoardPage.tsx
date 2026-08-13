@@ -5,6 +5,8 @@ import ChatPanel from '../components/ChatPanel';
 import { useAcidRainSocket } from '../hooks/useAcidRainSocket';
 import { useOpponentTypingState } from '../hooks/useOpponentTypingState';
 import { useWordFontSize } from '../hooks/useWordFontSize';
+import { useAiMonitorBridge } from '../hooks/useAiMonitorBridge';
+import AiMonitorButton from '../components/game/AiMonitorButton';
 import type { FallingWord, MatchEndData, GamePhase, ParticipantState, HpByParticipantId } from '../types/acidRain';
 
 const MAX_HP = 100;
@@ -87,6 +89,7 @@ export default function GameBoardPage() {
   // ── Word font size (+/- 키, localStorage 저장) ───────────────────────────────
   const { fontSize, increase: increaseFontSize, decrease: decreaseFontSize } = useWordFontSize();
   const { aiTyping, legacyTyping, startMatch, endMatch, activateFromStateSync, applyTyping } = useOpponentTypingState(roomId ?? '', players);
+  const monitor = useAiMonitorBridge(roomId ?? '');
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -142,13 +145,15 @@ export default function GameBoardPage() {
 
   const handleMatchReady = useCallback((data: Parameters<import('../types/acidRain').AcidRainServerEvents['match_ready']>[0]) => {
     if (data.roomId !== roomId) return;
+    monitor.onMatchReady(data);
     startMatch(data.roomId, data.participants);
     setPhase('COUNTDOWN');
     setCountdown(3);
     setPlayers(data.participants);
-  }, [roomId, startMatch]);
+  }, [roomId, startMatch, monitor]);
 
   const handleMatchStart = useCallback((startAt: string, now: string, initialHp: number) => {
+    monitor.onMatchStart(startAt);
     clockOffsetRef.current = Date.parse(now) - Date.now();
     serverStartAtRef.current = Date.parse(startAt);
     const msUntilStart = serverStartAtRef.current - (Date.now() + clockOffsetRef.current);
@@ -161,7 +166,7 @@ export default function GameBoardPage() {
     };
     if (msUntilStart > 0) setTimeout(startGame, msUntilStart);
     else startGame();
-  }, [startTimer]);
+  }, [monitor, startTimer]);
 
   const handleWordSpawn = useCallback((word: FallingWord) => {
     setWords(prev => [...prev, word]);
@@ -200,13 +205,14 @@ export default function GameBoardPage() {
   }, []);
 
   const handleMatchEnd = useCallback((data: MatchEndData) => {
+    monitor.onMatchEnd();
     endMatch();
     if (timerRef.current) clearInterval(timerRef.current);
     setPhase('FINISHED');
     setWords([]);
     const isWinner = data.winnerId === myUserIdRef.current;
     setEndData({ ...data, isWinner });
-  }, [endMatch]);
+  }, [endMatch, monitor]);
 
   const handleOpponentDisconnected = useCallback(() => {
     setDisconnectedOpponent(true);
@@ -245,6 +251,7 @@ export default function GameBoardPage() {
     onOpponentReconnected: handleOpponentReconnected,
     onStateSync: handleStateSync,
     onOpponentTyping: applyTyping,
+    onAiMonitorSnapshot: monitor.onSnapshot,
   });
 
   // ── Input submit: 엔터 키로 제출 (#86) ──────────────────────────────────
@@ -338,7 +345,9 @@ export default function GameBoardPage() {
                 {fmtTime(remaining)}
               </span>
             </div>
-            <div style={{ width: 80 }} />
+            {players.some(player => player.type === 'AI') && roomId && (
+              <AiMonitorButton roomId={roomId} onOpen={monitor.openMonitor} />
+            )}
           </div>
 
           {/* Other players' HP (up to 3, battle royale) */}

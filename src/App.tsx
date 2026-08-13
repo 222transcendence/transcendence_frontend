@@ -12,6 +12,7 @@ import StatsPage from './pages/StatsPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import GameBoardPage from './pages/GameBoardPage';
 import SpectateBoardPage from './pages/SpectateBoardPage';
+import AiMonitorPage from './pages/AiMonitorPage';
 import PrivateRoute from './components/PrivateRoute';
 import InviteNotification from './components/InviteNotification';
 import { GameSocketProvider } from './context/GameSocketContext';
@@ -85,6 +86,10 @@ function App() {
         <Route
           path="/spectate/:roomId"
           element={<PrivateRoute><SpectateBoardPage /></PrivateRoute>}
+        />
+        <Route
+          path="/game/:roomId/ai-monitor"
+          element={<PrivateRoute><AiMonitorPage /></PrivateRoute>}
         />
 
         {/* Dev-only animation demo (#6), not linked from nav */}

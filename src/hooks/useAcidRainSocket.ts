@@ -23,6 +23,7 @@ export interface AcidRainHandlers {
   onStateSync?: (data: Parameters<AcidRainServerEvents['state_sync']>[0]) => void;
   /** 상대방 실시간 입력 진행도 (#71) */
   onOpponentTyping?: (data: Parameters<AcidRainServerEvents['opponent_typing']>[0]) => void;
+  onAiMonitorSnapshot?: (data: Parameters<AcidRainServerEvents['ai_monitor_snapshot']>[0]) => void;
 }
 
 function calcClockOffset(serverNow: string): number {
@@ -157,6 +158,10 @@ export function useAcidRainSocket(
       handlersRef.current.onOpponentTyping?.(data);
     };
 
+    const onAiMonitorSnapshot = (data: Parameters<AcidRainServerEvents['ai_monitor_snapshot']>[0]) => {
+      handlersRef.current.onAiMonitorSnapshot?.(data);
+    };
+
     socket.on('match_ready', onMatchReady);
     socket.on('match_start', onMatchStart);
     socket.on('word_spawn', onWordSpawn);
@@ -169,6 +174,7 @@ export function useAcidRainSocket(
     socket.on('opponent_reconnected', onOpponentReconnected);
     socket.on('state_sync', onStateSync);
     socket.on('opponent_typing', onOpponentTyping);
+    socket.on('ai_monitor_snapshot', onAiMonitorSnapshot);
 
     return () => {
       socket.off('match_ready', onMatchReady);
@@ -183,6 +189,7 @@ export function useAcidRainSocket(
       socket.off('opponent_reconnected', onOpponentReconnected);
       socket.off('state_sync', onStateSync);
       socket.off('opponent_typing', onOpponentTyping);
+      socket.off('ai_monitor_snapshot', onAiMonitorSnapshot);
     };
   }, [socket]);
 

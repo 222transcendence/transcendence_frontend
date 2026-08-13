@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
-import type { AiMonitorSnapshot } from '../types/acidRain';
+import type { AiMonitorMetricMetadata, AiMonitorSnapshot } from '../types/acidRain';
 import { appendDecisionHistory, mergeAiMonitorSnapshot, type AiMonitorDecisionHistoryEntry } from '../lib/aiMonitorSnapshot';
 import type { MonitorMessage, MonitorIdentity } from '../hooks/useAiMonitorBridge';
 
@@ -19,6 +19,24 @@ function value(value: unknown): string {
 
 function percent(valueToFormat: number | null | undefined): string {
   return valueToFormat === null || valueToFormat === undefined ? 'Not available' : `${(valueToFormat * 100).toFixed(1)}%`;
+}
+
+function metricMetadata(
+  profile: AiMonitorSnapshot['profile'],
+  key: string,
+): AiMonitorMetricMetadata | null {
+  return profile.metricConfidence?.[key] ?? null;
+}
+
+function metricAvailability(metadata: AiMonitorMetricMetadata | null): string {
+  if (!metadata) return 'Not available';
+  return metadata.available ? 'Available' : 'Missing';
+}
+
+function fallbackLabel(
+  fallback: AiMonitorSnapshot['profile']['fallbackReason'],
+): string {
+  return !fallback || fallback === 'NONE' ? 'Not available' : fallback;
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -125,7 +143,13 @@ export default function AiMonitorPage() {
             <Card title="Player profile">
               <Field label="WPM">{value(snapshot.profile.wpm)}</Field><Field label="Accuracy">{percent(snapshot.profile.accuracy)}</Field>
               <Field label="Reaction">{value(snapshot.profile.reactionTimeMs)} ms</Field><Field label="Samples">{value(snapshot.profile.sampleCount)}</Field>
-              <Field label="Confidence">{percent(snapshot.profile.confidence)}</Field><Field label="Source">Not available</Field>
+              <Field label="Confidence">{percent(snapshot.profile.confidence)}</Field><Field label="Source">{value(snapshot.profile.source)}</Field>
+              <Field label="Profile version">{value(snapshot.profile.profileVersion)}</Field>
+              <Field label="Population version">{value(snapshot.profile.populationDefaultVersion)}</Field>
+              <Field label="Fallback">{fallbackLabel(snapshot.profile.fallbackReason)}</Field>
+              <Field label="WPM samples/confidence">{metricSummary(metricMetadata(snapshot.profile, 'wpm'))}</Field>
+              <Field label="Accuracy samples/confidence">{metricSummary(metricMetadata(snapshot.profile, 'accuracy'))}</Field>
+              <Field label="Reaction samples/confidence">{metricSummary(metricMetadata(snapshot.profile, 'reactionTimeMs'))}</Field>
             </Card>
             <Card title="Execution profile">
               <Field label="Difficulty">{value(snapshot.executionProfile.difficulty)}</Field><Field label="Typing WPM">{value(snapshot.executionProfile.typingWpm)}</Field>
@@ -137,6 +161,15 @@ export default function AiMonitorPage() {
               <Field label="Action">{value(snapshot.currentDecision.action)}</Field><Field label="Phase">{value(snapshot.currentDecision.phase)}</Field>
               <Field label="Target">{value(snapshot.currentDecision.targetWordId)}</Field><Field label="Previous">{value(snapshot.currentDecision.previousTargetWordId)}</Field>
               <Field label="Keystrokes">{snapshot.completedKeystrokes} / {snapshot.totalKeystrokes}</Field><Field label="stateVersion">{snapshot.stateVersion}</Field>
+            </Card>
+            <Card title="Behavior metrics">
+              <BehaviorMetric label="Typo probability" metadata={metricMetadata(snapshot.profile, 'typoProbability')} fallback={snapshot.profile.fallbackReason} />
+              <BehaviorMetric label="Correction delay" metadata={metricMetadata(snapshot.profile, 'correctionDelayMs')} fallback={snapshot.profile.fallbackReason} />
+              <BehaviorMetric label="Abandon probability" metadata={metricMetadata(snapshot.profile, 'abandonProbability')} fallback={snapshot.profile.fallbackReason} />
+              <BehaviorMetric label="Short word performance" metadata={metricMetadata(snapshot.profile, 'shortWordPerformance')} fallback={snapshot.profile.fallbackReason} />
+              <BehaviorMetric label="Medium word performance" metadata={metricMetadata(snapshot.profile, 'mediumWordPerformance')} fallback={snapshot.profile.fallbackReason} />
+              <BehaviorMetric label="Long word performance" metadata={metricMetadata(snapshot.profile, 'longWordPerformance')} fallback={snapshot.profile.fallbackReason} />
+              <div style={styles.muted}>Word type preference: Not available</div>
             </Card>
           </section>
           <Card title="Candidates">
@@ -151,6 +184,29 @@ export default function AiMonitorPage() {
         </>
       )}
     </main>
+  );
+}
+
+function metricSummary(metadata: AiMonitorMetricMetadata | null): string {
+  if (!metadata) return 'Not available';
+  return `${metadata.sampleCount} / ${percent(metadata.confidence)} (${metricAvailability(metadata)})`;
+}
+
+function BehaviorMetric({
+  label,
+  metadata,
+  fallback,
+}: {
+  label: string;
+  metadata: AiMonitorMetricMetadata | null;
+  fallback: AiMonitorSnapshot['profile']['fallbackReason'];
+}) {
+  return (
+    <Field label={label}>
+      {metadata
+        ? `${metricAvailability(metadata)} · ${metadata.sampleCount} samples · ${percent(metadata.confidence)}${metadata.available ? '' : ` · ${fallbackLabel(fallback)}`}`
+        : `Not available · ${fallbackLabel(fallback)}`}
+    </Field>
   );
 }
 

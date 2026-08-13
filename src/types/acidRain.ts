@@ -9,6 +9,7 @@ export interface ParticipantPublic {
   nickname: string;
   type: ParticipantType;
   aiDifficulty?: AiDifficulty;
+  avatar?: string;
 }
 
 /** HP/순위를 포함한 참가자 상태 */

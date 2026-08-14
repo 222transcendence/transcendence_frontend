@@ -6,16 +6,16 @@ const TermsOfServicePage: React.FC = () => (
     <div className="static-page-card">
       <Link to="/" className="static-page-back">← 홈으로</Link>
       <h1>이용약관</h1>
-      <p className="static-page-updated">최종 수정일: 2026년 8월 2일</p>
+      <p className="static-page-updated">최종 수정일: 2026년 8월 14일</p>
 
       <section>
         <h2>제1조 (목적)</h2>
-        <p>이 약관은 ft_transcendence 팀(이하 "팀")이 제공하는 Transcendence 서비스(이하 "서비스")의 이용 조건 및 절차, 팀과 이용자의 권리·의무를 규정함을 목적으로 합니다.</p>
+        <p>이 약관은 theLastDoorCloser 팀(이하 "팀")이 제공하는 Acid-Rain 서비스(이하 "서비스")의 이용 조건 및 절차, 팀과 이용자의 권리·의무를 규정함을 목적으로 합니다.</p>
       </section>
 
       <section>
         <h2>제2조 (서비스 소개)</h2>
-        <p>서비스는 42Seoul 교육과정의 ft_transcendence 과제로 개발된 웹 기반 실시간 타자 대전 게임 플랫폼입니다. 이용자는 상대방과 1대1 산성비(Acid Rain) 타자 대결을 즐길 수 있습니다.</p>
+        <p>서비스는 42École 교육과정의 ft_transcendence 과제로 개발된 웹 기반 실시간 타자 대전 게임 플랫폼입니다. 이용자는 상대방과 1대1 산성비(Acid Rain) 타자 대결을 즐길 수 있습니다.</p>
         <ul>
           <li>게임 로비 및 방 생성·입장</li>
           <li>실시간 산성비 타자 대전 (낙하하는 단어를 먼저 입력해 상대 HP를 감소)</li>
@@ -44,7 +44,7 @@ const TermsOfServicePage: React.FC = () => (
 
       <section>
         <h2>제5조 (서비스 변경 및 중단)</h2>
-        <p>서비스는 42Seoul 과제 목적으로 운영되며, 과제 종료 또는 팀의 판단에 따라 사전 고지 없이 변경·중단될 수 있습니다.</p>
+        <p>서비스는 42École 과제 목적으로 운영되며, 과제 종료 또는 팀의 판단에 따라 사전 고지 없이 변경·중단될 수 있습니다.</p>
       </section>
 
       <section>

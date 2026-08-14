@@ -426,16 +426,19 @@ export default function GameBoardPage() {
                       </div>
                       <span style={S.hpNum}>{p.hp} / {MAX_HP}</span>
                     </div>
-                    {/* 상대방 실시간 입력 진행도 — Option B: 입력 문자열 직접 표시 (#71) */}
+                    {/* 상대방 실시간 입력 진행도 — Option B: 입력 문자열 직접 표시 (#71).
+                        내용 유무와 무관하게 컨테이너를 항상 마운트해 높이를 예약해두고
+                        visibility만 토글한다 — 그래야 표시/숨김 전환마다 HP 영역 높이가
+                        흔들리지 않는다(#102). */}
                     {phase === 'IN_PROGRESS' && (() => {
                       const ai = aiTyping[p.participantId];
                       const partial = ai?.partialText ?? legacyTyping[p.participantId] ?? '';
-                      if (!partial && !ai) return null;
+                      const hasContent = !!partial || !!ai;
                       const progress = ai && ai.totalKeystrokes > 0
                         ? Math.min(100, (ai.completedKeystrokes / ai.totalKeystrokes) * 100)
                         : 0;
                       return (
-                        <div style={{ ...S.typingProgress, color: ai ? '#b47cff' : '#12c8a8', borderColor: ai ? '#b47cff88' : undefined }}>
+                        <div style={{ ...S.typingProgress, color: ai ? '#b47cff' : '#12c8a8', borderColor: ai ? '#b47cff88' : undefined, visibility: hasContent ? 'visible' : 'hidden' }}>
                           {ai && <span style={S.aiPhase}>{ai.phase}</span>}
                           <span style={S.typingBlocks}>{partial}</span>
                           {ai && ai.totalKeystrokes > 0 && <span style={S.aiProgress}>{ai.completedKeystrokes}/{ai.totalKeystrokes}</span>}

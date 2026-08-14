@@ -55,7 +55,7 @@ export default function LoginPage() {
     <div style={S.page}>
       <div style={S.card}>
         {/* Logo */}
-        <div style={S.logo}>TRANSCENDENCE</div>
+        <div style={S.logo}>Acid-Rain</div>
         <div style={S.subtitle}>계정에 로그인하세요</div>
 
         {serverError && <div style={S.errorBox}>{serverError}</div>}

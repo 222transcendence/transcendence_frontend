@@ -6,11 +6,11 @@ const PrivacyPolicyPage: React.FC = () => (
     <div className="static-page-card">
       <Link to="/" className="static-page-back">← 홈으로</Link>
       <h1>개인정보처리방침</h1>
-      <p className="static-page-updated">최종 수정일: 2026년 6월 29일</p>
+      <p className="static-page-updated">최종 수정일: 2026년 8월 14일</p>
 
       <section>
         <h2>1. 수집하는 개인정보 항목</h2>
-        <p>ft_transcendence 서비스(이하 "서비스")는 다음의 개인정보를 수집합니다.</p>
+        <p>Acid-Rain 서비스(이하 "서비스")는 다음의 개인정보를 수집합니다.</p>
         <ul>
           <li><strong>이메일 주소</strong>: 계정 식별 및 로그인에 사용</li>
           <li><strong>닉네임</strong>: 서비스 내 사용자 표시 이름</li>
@@ -51,7 +51,7 @@ const PrivacyPolicyPage: React.FC = () => (
 
       <section>
         <h2>6. 이용자의 권리</h2>
-        <p>이용자는 언제든지 자신의 개인정보를 조회·수정할 수 있으며, 회원 탈퇴를 통해 개인정보 삭제를 요청할 수 있습니다.</p>
+        <p>이용자는 언제든지 자신의 개인정보를 조회·수정할 수 있습니다. 서비스는 별도의 회원 탈퇴 기능을 제공하지 않으며, 계정 삭제 및 개인정보 삭제를 원하는 경우 아래 문의 이메일로 요청하시면 처리해 드립니다.</p>
       </section>
 
       <section>

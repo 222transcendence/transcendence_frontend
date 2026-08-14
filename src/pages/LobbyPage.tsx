@@ -130,6 +130,10 @@ export default function LobbyPage() {
     navigate(`/spectate/${room.id}`);
   };
 
+  const handleRejoinRoom = (room: Room) => {
+    navigate(`/game/${room.id}`);
+  };
+
   // WAITING 목록(rooms, 실시간 갱신)과 관전 가능(IN_GAME) 목록을 id 기준으로 합쳐서 보여준다.
   // rooms 쪽이 ROOM_UPDATED로 실시간 갱신되므로 겹치면 rooms 값을 우선한다.
   const displayRooms = (() => {
@@ -222,6 +226,7 @@ export default function LobbyPage() {
             rooms={displayRooms} isConnecting={isConnecting} connectionError={connectionError}
             onCreateRoom={handleCreateRoom} onJoinRoom={(room) => handleJoinRoom(room)}
             onSpectateRoom={(room) => handleSpectateRoom(room)}
+            onRejoinRoom={(room) => handleRejoinRoom(room)}
             currentUserId={myUserId} onAiClick={() => setShowAiModal(true)}
           />
         )}
@@ -262,10 +267,11 @@ export default function LobbyPage() {
 
 // ── Lobby tab ─────────────────────────────────────────────────────────────────
 
-function LobbyTab({ rooms, isConnecting, connectionError, onCreateRoom, onJoinRoom, onSpectateRoom, currentUserId, onAiClick }: {
+function LobbyTab({ rooms, isConnecting, connectionError, onCreateRoom, onJoinRoom, onSpectateRoom, onRejoinRoom, currentUserId, onAiClick }: {
   rooms: Room[]; isConnecting: boolean; connectionError: string;
   onCreateRoom: () => void; onJoinRoom: (room: Room) => void;
   onSpectateRoom: (room: Room) => void;
+  onRejoinRoom: (room: Room) => void;
   currentUserId: string; onAiClick: () => void;
 }) {
   return (
@@ -293,6 +299,7 @@ function LobbyTab({ rooms, isConnecting, connectionError, onCreateRoom, onJoinRo
               const host = room.players.find(p => p.userId === room.hostUserId);
               const isInGame = room.status !== 'WAITING';
               const isWaitingFull = room.players.length >= room.maxPlayers;
+              const isOwnRoom = room.players.some(p => p.userId === currentUserId);
               return (
                 <div key={room.id} style={{ ...S.card, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
@@ -300,7 +307,11 @@ function LobbyTab({ rooms, isConnecting, connectionError, onCreateRoom, onJoinRo
                     <div style={S.cardSub}>{room.players.length}/{room.maxPlayers} 명 · {isInGame ? '게임 중' : '대기 중'}</div>
                   </div>
                   {isInGame ? (
-                    <button onClick={() => onSpectateRoom(room)} style={S.ghostBtn}>👁 관전하기</button>
+                    isOwnRoom ? (
+                      <button onClick={() => onRejoinRoom(room)} style={S.primaryBtn}>재접속하기</button>
+                    ) : (
+                      <button onClick={() => onSpectateRoom(room)} style={S.ghostBtn}>👁 관전하기</button>
+                    )
                   ) : (
                     <button onClick={() => onJoinRoom(room)} disabled={isWaitingFull} style={isWaitingFull ? S.disabledBtn : S.primaryBtn}>
                       {isWaitingFull ? '참가 불가' : '참가하기'}

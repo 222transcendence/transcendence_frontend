@@ -41,6 +41,15 @@ export function useAcidRainSocket(
     handlersRef.current = handlers;
   }, [handlers]);
 
+  // connect()가 비동기라 mount 시점엔 socket이 아직 null이다. cleanup이
+  // [roomId] effect의 mount-time 클로저로 socket을 붙잡으면 언마운트 시
+  // 항상 stale null을 참조해 leave_room emit이 조용히 유실된다(backend#185).
+  // socketRef로 최신 socket을 별도 추적해 cleanup에서 항상 최신 값을 읽는다.
+  const socketRef = useRef(socket);
+  useEffect(() => {
+    socketRef.current = socket;
+  }, [socket]);
+
   const clockOffsetRef = useRef<number>(0);
   // match_ready/state_sync 수신 여부 — 받기 전까지는 join_room을 주기적으로 재전송한다.
   const joinedRef = useRef(false);
@@ -52,9 +61,9 @@ export function useAcidRainSocket(
     // 소켓 disconnect를 기다리지 않고 바로 "관전 종료" 메시지를 보내도록 leave_spectate를 emit.
     return () => {
       if (mode === 'player') {
-        socket?.emit('leave_room', { roomId });
+        socketRef.current?.emit('leave_room', { roomId });
       } else {
-        socket?.emit('leave_spectate', { roomId });
+        socketRef.current?.emit('leave_spectate', { roomId });
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

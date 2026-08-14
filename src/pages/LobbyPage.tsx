@@ -278,7 +278,6 @@ function LobbyTab({ rooms, isConnecting, connectionError, onCreateRoom, onJoinRo
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={onCreateRoom} disabled={isConnecting} style={S.primaryBtn}>+ 방 만들기</button>
-            <button disabled style={{ ...S.ghostBtn, opacity: 0.4, cursor: 'not-allowed' }}>랜덤 매칭</button>
             <button onClick={onAiClick} style={S.ghostBtn}>AI 대전</button>
           </div>
         </div>

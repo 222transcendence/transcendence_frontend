@@ -1,12 +1,6 @@
-export interface Character {
-  id: number;
-  name: string;
-}
-
 export interface RoomPlayer {
   userId: string;
   nickname: string;
-  characterId?: number;
   ready: boolean;
 }
 
@@ -58,7 +52,7 @@ export interface LobbyServerMessage {
 export interface LobbyClientMessage {
   LIST_ROOMS: Record<string, never>;
   CREATE_ROOM: { maxPlayers?: number };
-  JOIN_ROOM: { roomId: string; characterId?: number };
+  JOIN_ROOM: { roomId: string };
   GET_ROOM: { roomId: string };
   LEAVE_ROOM: { roomId: string };
   SET_READY: { roomId: string; ready: boolean };

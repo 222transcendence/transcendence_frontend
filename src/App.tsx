@@ -5,7 +5,6 @@ import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import ProfilePage from './pages/ProfilePage';
 import LobbyPage from './pages/LobbyPage';
 import WaitingRoomPage from './pages/WaitingRoomPage';
-import PhaseAnimationsDemoPage from './pages/dev/PhaseAnimationsDemoPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsOfServicePage from './pages/TermsOfServicePage';
 import StatsPage from './pages/StatsPage';
@@ -90,16 +89,6 @@ function App() {
         <Route
           path="/game/:roomId/ai-monitor"
           element={<PrivateRoute><AiMonitorPage /></PrivateRoute>}
-        />
-
-        {/* Dev-only animation demo (#6), not linked from nav */}
-        <Route
-          path="/dev/phase-animations"
-          element={
-            <PrivateRoute>
-              <PhaseAnimationsDemoPage />
-            </PrivateRoute>
-          }
         />
 
         {/* Fallback to Home */}

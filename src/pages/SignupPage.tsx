@@ -60,7 +60,7 @@ export default function SignupPage() {
   return (
     <div style={S.page}>
       <div style={S.card}>
-        <div style={S.logo}>TRANSCENDENCE</div>
+        <div style={S.logo}>Acid-Rain</div>
         <div style={S.subtitle}>새 계정을 만드세요</div>
 
         {serverError && <div style={S.errorBox}>{serverError}</div>}

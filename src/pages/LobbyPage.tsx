@@ -174,7 +174,7 @@ export default function LobbyPage() {
     <div style={S.page} onClick={() => setProfileMenuOpen(false)}>
       {/* Sidebar */}
       <nav style={S.sidebar}>
-        <div style={S.logo}>TRANSCENDENCE</div>
+        <a href="/lobby" style={{ ...S.logo, textDecoration: 'none', cursor: 'pointer' }}>Acid-Rain</a>
 
         {/* Profile card — clickable dropdown */}
         <div style={{ position: 'relative' as const }}>

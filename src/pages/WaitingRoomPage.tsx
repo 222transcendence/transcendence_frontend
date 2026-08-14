@@ -267,29 +267,33 @@ export default function WaitingRoomPage() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 300, overflowY: 'auto' }}>
-                {friends.map(f => (
-                  <div key={f.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 4px', borderBottom: '1px solid rgba(255,255,255,.06)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: f.status === 'ONLINE' ? '#12c8a8' : f.status === 'IN_GAME' ? '#eab308' : '#3a4256', flexShrink: 0 }} />
-                      <span style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, color: '#e2e8f5' }}>{f.nickname}</span>
-                      <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: '#5c6a8a' }}>{f.status}</span>
+                {friends.map(f => {
+                  const inRoom = room?.players.some(p => p.userId === f.id) ?? false;
+                  const disabled = f.status !== 'ONLINE' || invitedIds.has(f.id) || inRoom;
+                  return (
+                    <div key={f.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 4px', borderBottom: '1px solid rgba(255,255,255,.06)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: f.status === 'ONLINE' ? '#12c8a8' : f.status === 'IN_GAME' ? '#eab308' : '#3a4256', flexShrink: 0 }} />
+                        <span style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, color: '#e2e8f5' }}>{f.nickname}</span>
+                        <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: '#5c6a8a' }}>{f.status}</span>
+                      </div>
+                      <button
+                        onClick={() => sendInvite(f)}
+                        disabled={disabled}
+                        style={{
+                          padding: '4px 12px', borderRadius: 6, fontSize: 11,
+                          cursor: disabled ? 'default' : 'pointer',
+                          fontFamily: "'JetBrains Mono',monospace",
+                          border: disabled ? '1px solid rgba(255,255,255,.08)' : '1px solid rgba(18,200,168,.4)',
+                          background: disabled ? 'transparent' : 'rgba(18,200,168,.1)',
+                          color: disabled ? '#3a4256' : '#12c8a8',
+                        }}
+                      >
+                        {invitedIds.has(f.id) ? '초대됨' : inRoom ? '참여 중' : f.status === 'OFFLINE' ? '오프라인' : f.status === 'IN_GAME' ? '게임 중' : '초대'}
+                      </button>
                     </div>
-                    <button
-                      onClick={() => sendInvite(f)}
-                      disabled={f.status !== 'ONLINE' || invitedIds.has(f.id)}
-                      style={{
-                        padding: '4px 12px', borderRadius: 6, fontSize: 11,
-                        cursor: (f.status !== 'ONLINE' || invitedIds.has(f.id)) ? 'default' : 'pointer',
-                        fontFamily: "'JetBrains Mono',monospace",
-                        border: (f.status !== 'ONLINE' || invitedIds.has(f.id)) ? '1px solid rgba(255,255,255,.08)' : '1px solid rgba(18,200,168,.4)',
-                        background: (f.status !== 'ONLINE' || invitedIds.has(f.id)) ? 'transparent' : 'rgba(18,200,168,.1)',
-                        color: (f.status !== 'ONLINE' || invitedIds.has(f.id)) ? '#3a4256' : '#12c8a8',
-                      }}
-                    >
-                      {invitedIds.has(f.id) ? '초대됨' : f.status === 'OFFLINE' ? '오프라인' : f.status === 'IN_GAME' ? '게임 중' : '초대'}
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             <button onClick={() => setShowInviteModal(false)} style={{ ...PS.closeBtn, marginTop: 16 }}>닫기</button>

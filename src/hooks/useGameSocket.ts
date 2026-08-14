@@ -15,13 +15,21 @@ export function useGameSocket(roomId: string, handlers: GameSocketHandlers = {})
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
 
+  // connect()가 비동기라 mount 시점엔 socket이 아직 null이다. 아래 [roomId]
+  // effect의 cleanup이 mount-time 클로저로 socket을 붙잡으면 언마운트 시
+  // 항상 stale null을 참조해 leave_room emit이 조용히 유실된다(backend#185).
+  // socketRef로 최신 socket을 별도 추적해 cleanup에서 항상 최신 값을 읽는다.
+  const socketRef = useRef(socket);
+  useEffect(() => {
+    socketRef.current = socket;
+  }, [socket]);
+
   // Auto-connect and join room when roomId is provided
   useEffect(() => {
     connect();
     return () => {
-      socket?.emit('leave_room', { roomId });
+      socketRef.current?.emit('leave_room', { roomId });
     };
-    // connect and socket are stable references; roomId is the join key
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId]);
 

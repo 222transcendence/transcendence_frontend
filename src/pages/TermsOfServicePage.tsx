@@ -10,7 +10,7 @@ const TermsOfServicePage: React.FC = () => (
 
       <section>
         <h2>제1조 (목적)</h2>
-        <p>이 약관은 ft_transcendence 팀(이하 "팀")이 제공하는 Acid-Rain 서비스(이하 "서비스")의 이용 조건 및 절차, 팀과 이용자의 권리·의무를 규정함을 목적으로 합니다.</p>
+        <p>이 약관은 theLastDoorCloser 팀(이하 "팀")이 제공하는 Acid-Rain 서비스(이하 "서비스")의 이용 조건 및 절차, 팀과 이용자의 권리·의무를 규정함을 목적으로 합니다.</p>
       </section>
 
       <section>

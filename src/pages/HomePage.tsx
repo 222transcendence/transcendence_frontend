@@ -30,7 +30,7 @@ export default function HomePage() {
     };
 
     loadProfile();
-  }, []);
+  }, [navigate]);
 
   if (isLoading) {
     return (

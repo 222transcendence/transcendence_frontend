@@ -202,14 +202,3 @@ export async function fetchChatHistory(): Promise<ChatMessage[]> {
   return parseEnvelope<ChatMessage[]>(response);
 }
 
-export interface CardInfo {
-  id: number;
-  type: 'MOVE' | 'ATK_SWORD' | 'ATK_GUN' | 'DEF' | 'SPECIAL';
-  valueTop: number;
-  valueBottom: number;
-}
-
-export async function fetchAllCards(): Promise<CardInfo[]> {
-  const response = await authorizedFetch('/api/game/cards');
-  return parseEnvelope<CardInfo[]>(response);
-}

@@ -319,16 +319,19 @@ export default function SpectateBoardPage() {
                     </div>
                     <span style={S.hpNum}>{p.hp} / {MAX_HP}</span>
                   </div>
-                  {/* 실시간 입력 진행도 (#85) */}
+                  {/* 실시간 입력 진행도 (#85). 내용 유무와 무관하게 컨테이너를 항상
+                      마운트해 높이를 예약해두고 visibility만 토글한다 — 그래야
+                      표시/숨김 전환마다 HP 영역 높이가 흔들리지 않는다(GameBoardPage의
+                      #102 수정을 관전 화면에도 동일 적용). */}
                   {phase === 'IN_PROGRESS' && (() => {
                     const ai = aiTyping[p.participantId];
                     const partial = ai?.partialText ?? legacyTyping[p.participantId] ?? '';
-                    if (!partial && !ai) return null;
+                    const hasContent = !!partial || !!ai;
                     const progress = ai && ai.totalKeystrokes > 0
                       ? Math.min(100, (ai.completedKeystrokes / ai.totalKeystrokes) * 100)
                       : 0;
                     return (
-                      <div style={{ marginTop: 4, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: ai ? '#b47cff' : '#12c8a8', opacity: 0.85, letterSpacing: 0.5, position: 'relative' }}>
+                      <div style={{ marginTop: 4, height: 14, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: ai ? '#b47cff' : '#12c8a8', opacity: 0.85, letterSpacing: 0.5, position: 'relative', visibility: hasContent ? 'visible' : 'hidden' }}>
                         {ai && <span style={{ marginRight: 6 }}>{ai.phase}</span>}
                         {partial}
                         {ai && ai.totalKeystrokes > 0 && <span style={{ marginLeft: 6 }}>{ai.completedKeystrokes}/{ai.totalKeystrokes}</span>}

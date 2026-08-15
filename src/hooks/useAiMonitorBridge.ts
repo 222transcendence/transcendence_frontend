@@ -5,6 +5,7 @@ import type {
   AcidRainServerEvents,
 } from '../types/acidRain';
 import { mergeAiMonitorSnapshot } from '../lib/aiMonitorSnapshot';
+import { openAiMonitor } from '../lib/aiMonitorPopup';
 
 interface MonitorIdentity {
   roomId: string;
@@ -144,9 +145,7 @@ export function useAiMonitorBridge(roomId: string) {
   }, []);
 
   const openMonitor = useCallback(() => {
-    const url = `/game/${encodeURIComponent(roomId)}/ai-monitor`;
-    const popup = window.open(url, `ai-monitor-${roomId}`, 'popup=yes,width=1100,height=800,resizable=yes,scrollbars=yes');
-    return popup !== null;
+    return openAiMonitor(roomId);
   }, [roomId]);
 
   return { onMatchReady, onMatchStart, onSnapshot, onMatchEnd, openMonitor };

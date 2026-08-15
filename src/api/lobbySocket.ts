@@ -1,4 +1,5 @@
 import type { LobbyClientMessage, LobbyServerMessage } from '../types/lobby';
+import { getValidAccessToken } from './client';
 
 interface InboundEnvelope {
   type: string;
@@ -13,9 +14,9 @@ export class LobbySocket {
   private seq = 0;
   private listeners = new Map<string, Set<Listener>>();
 
-  connect(): Promise<void> {
+  async connect(): Promise<void> {
+    const token = await getValidAccessToken();
     return new Promise((resolve, reject) => {
-      const token = localStorage.getItem('accessToken');
       const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
       const url = `${protocol}://${window.location.host}/ws/lobby?token=${encodeURIComponent(token ?? '')}`;
 

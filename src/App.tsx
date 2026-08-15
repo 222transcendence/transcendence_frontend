@@ -5,20 +5,23 @@ import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import ProfilePage from './pages/ProfilePage';
 import LobbyPage from './pages/LobbyPage';
 import WaitingRoomPage from './pages/WaitingRoomPage';
-import PhaseAnimationsDemoPage from './pages/dev/PhaseAnimationsDemoPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsOfServicePage from './pages/TermsOfServicePage';
 import StatsPage from './pages/StatsPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import GameBoardPage from './pages/GameBoardPage';
+import SpectateBoardPage from './pages/SpectateBoardPage';
+import AiMonitorPage from './pages/AiMonitorPage';
 import PrivateRoute from './components/PrivateRoute';
 import InviteNotification from './components/InviteNotification';
 import { GameSocketProvider } from './context/GameSocketContext';
+import { ChatSocketProvider } from './context/ChatSocketContext';
 import './App.css';
 
 function App() {
   return (
     <GameSocketProvider>
+    <ChatSocketProvider>
     <BrowserRouter>
       <Routes>
         {/* Home → Lobby */}
@@ -80,14 +83,14 @@ function App() {
           element={<PrivateRoute><GameBoardPage /></PrivateRoute>}
         />
 
-        {/* Dev-only animation demo (#6), not linked from nav */}
+        {/* Spectator Mode (deploy#70) */}
         <Route
-          path="/dev/phase-animations"
-          element={
-            <PrivateRoute>
-              <PhaseAnimationsDemoPage />
-            </PrivateRoute>
-          }
+          path="/spectate/:roomId"
+          element={<PrivateRoute><SpectateBoardPage /></PrivateRoute>}
+        />
+        <Route
+          path="/game/:roomId/ai-monitor"
+          element={<PrivateRoute><AiMonitorPage /></PrivateRoute>}
         />
 
         {/* Fallback to Home */}
@@ -95,6 +98,7 @@ function App() {
       </Routes>
       <InviteNotification />
     </BrowserRouter>
+    </ChatSocketProvider>
     </GameSocketProvider>
   );
 }

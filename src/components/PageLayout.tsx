@@ -1,4 +1,5 @@
 import { useNavigate, Link } from 'react-router-dom';
+import styled from 'styled-components';
 
 interface PageLayoutProps {
   title: string;
@@ -10,55 +11,76 @@ interface PageLayoutProps {
 export default function PageLayout({ title, children, backTo = '/lobby', actions }: PageLayoutProps) {
   const navigate = useNavigate();
   return (
-    <div style={S.page}>
-      <div style={S.inner}>
-        <div style={S.header}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <button onClick={() => navigate(backTo)} style={S.backBtn}>← 뒤로</button>
-            <div style={S.title}>{title}</div>
-          </div>
-          {actions && <div style={{ display: 'flex', gap: 8 }}>{actions}</div>}
-        </div>
+    <Page>
+      <Inner>
+        <Header>
+          <HeaderLeft>
+            <BackBtn onClick={() => navigate(backTo)}>← 뒤로</BackBtn>
+            <Title>{title}</Title>
+          </HeaderLeft>
+          {actions && <HeaderActions>{actions}</HeaderActions>}
+        </Header>
         {children}
-      </div>
-    </div>
+      </Inner>
+    </Page>
   );
 }
 
 export function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
-  return <Link to={to} style={{ color: '#12c8a8', textDecoration: 'none', fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: 13 }}>{children}</Link>;
+  return <StyledNavLink to={to}>{children}</StyledNavLink>;
 }
 
-const S = {
-  page: {
-    minHeight: '100vh',
-    background: '#05070c',
-    padding: '28px 20px',
-    fontFamily: "'Inter',sans-serif",
-  },
-  inner: {},
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 28,
-    paddingBottom: 18,
-    borderBottom: '1px solid rgba(255,255,255,.07)',
-  },
-  title: {
-    fontFamily: "'Rajdhani',sans-serif",
-    fontWeight: 700 as const,
-    fontSize: 22,
-    color: '#e2e8f5',
-  },
-  backBtn: {
-    padding: '6px 12px',
-    borderRadius: 7,
-    border: '1px solid rgba(255,255,255,.12)',
-    background: 'transparent',
-    color: '#8a93a8',
-    fontFamily: "'JetBrains Mono',monospace",
-    fontSize: 10.5,
-    cursor: 'pointer',
-  },
-} as const;
+const Page = styled.div`
+  min-height: 100dvh;
+  background: #05070c;
+  padding: 28px 20px;
+  font-family: 'Inter', sans-serif;
+`;
+
+const Inner = styled.div``;
+
+const Header = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 28px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+`;
+
+const HeaderLeft = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 14px;
+`;
+
+const HeaderActions = styled.div`
+  display: flex;
+  gap: 8px;
+`;
+
+const Title = styled.div`
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  color: #e2e8f5;
+`;
+
+const BackBtn = styled.button`
+  padding: 6px 12px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: #8a93a8;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  cursor: pointer;
+`;
+
+const StyledNavLink = styled(Link)`
+  color: #12c8a8;
+  text-decoration: none;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+`;

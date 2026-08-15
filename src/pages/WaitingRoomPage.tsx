@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
+import styled from 'styled-components';
 import { LobbySocket } from '../api/lobbySocket';
 import { fetchMyProfile, fetchUserProfile, sendFriendRequest, getFriends, getSentRequests, getValidAccessToken } from '../api/client';
 import type { Room } from '../types/lobby';
@@ -164,79 +165,81 @@ export default function WaitingRoomPage() {
 
   if (isConnecting) {
     return (
-      <div style={S.page}>
-        <div style={S.center}><div style={S.spinner} /><div style={S.spinnerText}>방에 입장 중…</div></div>
-      </div>
+      <Page>
+        <Center><Spinner /><SpinnerText>방에 입장 중…</SpinnerText></Center>
+      </Page>
     );
   }
 
   if (!room) {
     return (
-      <div style={S.page}>
-        <div style={S.center}>
-          {errorMessage && <div style={S.errorBox}>{errorMessage}</div>}
-          <button onClick={() => navigate('/lobby')} style={S.ghostBtn}>← 로비로 돌아가기</button>
-        </div>
-      </div>
+      <Page>
+        <Center>
+          {errorMessage && <ErrorBox>{errorMessage}</ErrorBox>}
+          <GhostBtn onClick={() => navigate('/lobby')}>← 로비로 돌아가기</GhostBtn>
+        </Center>
+      </Page>
     );
   }
 
 
   return (
-    <div style={S.page}>
-      <div style={S.outerLayout}>
+    <Page>
+      <OuterLayout>
         {/* Main content */}
-        <div style={S.layout}>
-          <div style={S.header}>
-            <div style={S.logoText}>BATTLE ROOM</div>
+        <Layout>
+          <Header>
+            <LogoText>BATTLE ROOM</LogoText>
             <div style={{ display: 'flex', gap: 8 }}>
               {room.players.length < room.maxPlayers && (
-                <button onClick={openInviteModal} style={S.inviteBtn}>👥 친구 초대</button>
+                <InviteBtn onClick={openInviteModal}>👥 친구 초대</InviteBtn>
               )}
-              <button onClick={() => navigate('/lobby')} style={S.leaveBtn}>방 나가기</button>
+              <LeaveBtn onClick={() => navigate('/lobby')}>방 나가기</LeaveBtn>
             </div>
-          </div>
+          </Header>
 
-          {errorMessage && <div style={S.errorBox}>{errorMessage}</div>}
+          {errorMessage && <ErrorBox>{errorMessage}</ErrorBox>}
 
-          <div style={S.playersRow}>
+          <PlayersRow>
             {room.players.map(p => {
               const isMe = p.userId === myUserId;
               const isPlayerHost = p.userId === room.hostUserId;
               const avatar = isMe ? myAvatar : otherAvatars[p.userId];
               return (
-                <div key={p.userId} style={{ ...S.playerCard, borderColor: p.ready ? '#12c8a8' : 'rgba(255,255,255,.1)' }}>
-                  <div style={{ ...S.playerDot, backgroundImage: avatar ? `url(${avatar})` : 'none', backgroundColor: isPlayerHost ? '#12c8a8' : '#ef4a63' }} />
-                  <div style={S.playerName}>{p.nickname}</div>
-                  <div style={{ ...S.roleTag, color: isPlayerHost ? '#12c8a8' : '#8a93a8' }}>{isPlayerHost ? 'HOST' : 'PLAYER'}</div>
-                  <div style={{ ...S.readyBadge, background: p.ready ? 'rgba(18,200,168,.15)' : 'rgba(255,255,255,.05)', color: p.ready ? '#12c8a8' : '#5c6a8a', borderColor: p.ready ? 'rgba(18,200,168,.4)' : 'rgba(255,255,255,.1)' }}>
+                <PlayerCard key={p.userId} style={{ borderColor: p.ready ? '#12c8a8' : 'rgba(255,255,255,.1)' }}>
+                  <PlayerDot style={{ backgroundImage: avatar ? `url(${avatar})` : 'none', backgroundColor: isPlayerHost ? '#12c8a8' : '#ef4a63' }} />
+                  <PlayerName>{p.nickname}</PlayerName>
+                  <RoleTag style={{ color: isPlayerHost ? '#12c8a8' : '#8a93a8' }}>{isPlayerHost ? 'HOST' : 'PLAYER'}</RoleTag>
+                  <ReadyBadge style={{ background: p.ready ? 'rgba(18,200,168,.15)' : 'rgba(255,255,255,.05)', color: p.ready ? '#12c8a8' : '#5c6a8a', borderColor: p.ready ? 'rgba(18,200,168,.4)' : 'rgba(255,255,255,.1)' }}>
                     {p.ready ? '● READY' : '○ 대기 중'}
-                  </div>
+                  </ReadyBadge>
                   {!isMe && (
-                    <button onClick={() => openPlayerProfile(p.userId)} style={S.viewProfileBtn}>프로필 보기</button>
+                    <ViewProfileBtn onClick={() => openPlayerProfile(p.userId)}>프로필 보기</ViewProfileBtn>
                   )}
-                </div>
+                </PlayerCard>
               );
             })}
             {Array.from({ length: emptySlots }).map((_, i) => (
-              <div key={`empty-${i}`} style={{ ...S.playerCard, borderStyle: 'dashed', opacity: 0.5 }}>
-                <div style={S.waitingIcon}>?</div>
+              <PlayerCard key={`empty-${i}`} style={{ borderStyle: 'dashed', opacity: 0.5 }}>
+                <WaitingIcon>?</WaitingIcon>
                 <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#5c6a8a', marginTop: 8 }}>플레이어 대기 중…</div>
-              </div>
+              </PlayerCard>
             ))}
-          </div>
+          </PlayersRow>
 
           {allReady && (
             <div style={{ textAlign: 'center', marginTop: 12 }}>
-              <div style={S.startingText}>게임 시작 중…</div>
+              <StartingText>게임 시작 중…</StartingText>
             </div>
           )}
 
           {myPlayer && (
             <div style={{ textAlign: 'center', marginTop: 32 }}>
-              <button onClick={toggleReady} style={{ ...(myPlayer.ready ? S.cancelBtn : S.readyBtn), minWidth: 180 }}>
-                {myPlayer.ready ? '준비 취소' : '준비 완료'}
-              </button>
+              {myPlayer.ready ? (
+                <CancelBtn onClick={toggleReady} style={{ minWidth: 180 }}>준비 취소</CancelBtn>
+              ) : (
+                <ReadyBtn onClick={toggleReady} style={{ minWidth: 180 }}>준비 완료</ReadyBtn>
+              )}
               {isHost && room.players.length < 2 && (
                 <div style={{ marginTop: 12, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#5c6a8a' }}>
                   다른 플레이어가 입장할 때까지 기다려주세요
@@ -244,20 +247,20 @@ export default function WaitingRoomPage() {
               )}
             </div>
           )}
-        </div>
+        </Layout>
 
         {/* 1:1 Chat */}
         {myUserId && (
-          <div style={S.chatColumn}>
+          <ChatColumn>
             <ChatPanel currentUserId={myUserId} roomId={roomId} />
-          </div>
+          </ChatColumn>
         )}
-      </div>
+      </OuterLayout>
 
       {/* Friend invite modal */}
       {showInviteModal && (
-        <div style={PS.backdrop} onClick={() => setShowInviteModal(false)}>
-          <div style={PS.modal} onClick={e => e.stopPropagation()}>
+        <Backdrop onClick={() => setShowInviteModal(false)}>
+          <Modal onClick={e => e.stopPropagation()}>
             <div style={{ fontFamily: "'Rajdhani',sans-serif", fontWeight: 700, fontSize: 18, color: '#e2e8f5', marginBottom: 16 }}>
               친구 초대
             </div>
@@ -277,55 +280,48 @@ export default function WaitingRoomPage() {
                         <span style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, color: '#e2e8f5' }}>{f.nickname}</span>
                         <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: '#5c6a8a' }}>{f.status}</span>
                       </div>
-                      <button
+                      <InviteFriendBtn
                         onClick={() => sendInvite(f)}
                         disabled={disabled}
-                        style={{
-                          padding: '4px 12px', borderRadius: 6, fontSize: 11,
-                          cursor: disabled ? 'default' : 'pointer',
-                          fontFamily: "'JetBrains Mono',monospace",
-                          border: disabled ? '1px solid rgba(255,255,255,.08)' : '1px solid rgba(18,200,168,.4)',
-                          background: disabled ? 'transparent' : 'rgba(18,200,168,.1)',
-                          color: disabled ? '#3a4256' : '#12c8a8',
-                        }}
+                        $disabled={disabled}
                       >
                         {invitedIds.has(f.id) ? '초대됨' : inRoom ? '참여 중' : f.status === 'OFFLINE' ? '오프라인' : f.status === 'IN_GAME' ? '게임 중' : '초대'}
-                      </button>
+                      </InviteFriendBtn>
                     </div>
                   );
                 })}
               </div>
             )}
-            <button onClick={() => setShowInviteModal(false)} style={{ ...PS.closeBtn, marginTop: 16 }}>닫기</button>
-          </div>
-        </div>
+            <CloseBtn onClick={() => setShowInviteModal(false)} style={{ marginTop: 16 }}>닫기</CloseBtn>
+          </Modal>
+        </Backdrop>
       )}
 
       {/* Player profile popup */}
       {selectedPlayer && (
-        <div style={PS.backdrop} onClick={() => setSelectedPlayer(null)}>
-          <div style={PS.modal} onClick={e => e.stopPropagation()}>
-            <div style={PS.row}>
-              <div style={{ ...PS.avatar, backgroundImage: selectedPlayer.profile.avatar ? `url(${selectedPlayer.profile.avatar})` : 'none' }} />
+        <Backdrop onClick={() => setSelectedPlayer(null)}>
+          <Modal onClick={e => e.stopPropagation()}>
+            <ProfileRow>
+              <ProfileAvatar style={{ backgroundImage: selectedPlayer.profile.avatar ? `url(${selectedPlayer.profile.avatar})` : 'none' }} />
               <div>
-                <div style={PS.name}>{selectedPlayer.profile.nickname}</div>
+                <ProfileNameText>{selectedPlayer.profile.nickname}</ProfileNameText>
                 <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: selectedPlayer.profile.status === 'ONLINE' ? '#12c8a8' : '#5c6a8a', marginTop: 2 }}>● {selectedPlayer.profile.status}</div>
               </div>
-            </div>
-            <div style={PS.statsRow}>
+            </ProfileRow>
+            <StatsRow>
               {[
                 { label: '승', value: selectedPlayer.profile.wins, color: '#12c8a8' },
                 { label: '패', value: selectedPlayer.profile.losses, color: '#ef4a63' },
                 { label: '승률', value: `${selectedPlayer.profile.wins + selectedPlayer.profile.losses > 0 ? Math.round(selectedPlayer.profile.wins / (selectedPlayer.profile.wins + selectedPlayer.profile.losses) * 100) : 0}%`, color: '#eab308' },
               ].map(item => (
-                <div key={item.label} style={PS.statBox}>
-                  <div style={PS.statLabel}>{item.label}</div>
-                  <div style={{ ...PS.statValue, color: item.color }}>{item.value}</div>
-                </div>
+                <StatBox key={item.label}>
+                  <StatLabel>{item.label}</StatLabel>
+                  <StatValue style={{ color: item.color }}>{item.value}</StatValue>
+                </StatBox>
               ))}
-            </div>
+            </StatsRow>
             {!isAlreadyFriend && !isPendingRequest && friendStatus === 'idle' && (
-              <button onClick={handleAddFriend} style={PS.addBtn}>친구 추가</button>
+              <AddBtn onClick={handleAddFriend}>친구 추가</AddBtn>
             )}
             {(isAlreadyFriend || isPendingRequest || friendStatus === 'sent') && (
               <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#5c6a8a', textAlign: 'center' as const, marginTop: 8 }}>
@@ -337,54 +333,348 @@ export default function WaitingRoomPage() {
                 {friendErrorMsg}
               </div>
             )}
-            <button onClick={() => setSelectedPlayer(null)} style={PS.closeBtn}>닫기</button>
-          </div>
-        </div>
+            <CloseBtn onClick={() => setSelectedPlayer(null)}>닫기</CloseBtn>
+          </Modal>
+        </Backdrop>
       )}
-    </div>
+    </Page>
   );
 }
 
-const S = {
-  page: { minHeight: '100dvh', background: 'radial-gradient(ellipse 1000px 600px at 50% -5%, #0e1a24 0%, #05070c 60%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter',sans-serif", padding: 20 },
-  outerLayout: { width: '100%', maxWidth: 980, display: 'flex', gap: 20, alignItems: 'flex-start' },
-  layout: { flex: 1, minWidth: 0 },
-  chatColumn: { width: 240, flex: 'none' as const, height: 480, alignSelf: 'flex-start' as const },
-  center: { display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: 16 },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 40 },
-  logoText: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 18, letterSpacing: '.2em', color: '#12c8a8' },
-  inviteBtn: { padding: '6px 14px', borderRadius: 7, border: '1px solid rgba(18,200,168,.35)', background: 'rgba(18,200,168,.06)', color: '#12c8a8', fontFamily: "'JetBrains Mono',monospace", fontSize: 10.5, cursor: 'pointer' },
-  leaveBtn: { padding: '6px 14px', borderRadius: 7, border: '1px solid rgba(239,74,99,.35)', background: 'rgba(239,74,99,.06)', color: '#ef4a63', fontFamily: "'JetBrains Mono',monospace", fontSize: 10.5, cursor: 'pointer' },
-  errorBox: { background: 'rgba(239,74,99,.1)', border: '1px solid rgba(239,74,99,.3)', borderRadius: 10, padding: '10px 14px', color: '#ef4a63', fontFamily: "'JetBrains Mono',monospace", fontSize: 12, marginBottom: 16 },
-  playersRow: { display: 'flex', alignItems: 'stretch', gap: 16, flexWrap: 'wrap' as const },
-  playerCard: { flex: '1 1 200px', minWidth: 200, background: '#0d1220', border: '1px solid', borderRadius: 16, padding: '28px 24px', display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: 8, transition: 'border-color .3s' },
-  playerDot: { width: 56, height: 56, borderRadius: '50%', marginBottom: 4, backgroundSize: 'cover', backgroundPosition: 'center', overflow: 'hidden' as const },
-  playerName: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 18, color: '#e2e8f5' },
-  playerChar: { fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: '.1em' },
-  roleTag: { fontFamily: "'JetBrains Mono',monospace", fontSize: 9, letterSpacing: '.15em', color: '#12c8a8', marginTop: 2 },
-  readyBadge: { marginTop: 8, padding: '4px 12px', borderRadius: 20, border: '1px solid', fontFamily: "'JetBrains Mono',monospace", fontWeight: 700 as const, fontSize: 10, letterSpacing: '.08em', transition: 'all .3s' },
-  viewProfileBtn: { marginTop: 8, padding: '4px 12px', borderRadius: 7, border: '1px solid rgba(255,255,255,.1)', background: 'transparent', color: '#5c6a8a', fontFamily: "'JetBrains Mono',monospace", fontSize: 10, cursor: 'pointer' },
-  vsBlock: { display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: 6, flex: 'none' as const },
-  vsText: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 28, color: '#2a3246' },
-  startingText: { fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: '#12c8a8' },
-  waitingIcon: { width: 48, height: 48, borderRadius: '50%', background: 'rgba(255,255,255,.04)', border: '1px dashed rgba(255,255,255,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3a4256', fontSize: 20, marginBottom: 4 },
-  readyBtn: { padding: '12px 32px', borderRadius: 10, border: '1px solid rgba(18,200,168,.5)', background: 'rgba(18,200,168,.12)', color: '#12c8a8', fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 16, cursor: 'pointer', letterSpacing: '.05em' },
-  cancelBtn: { padding: '12px 32px', borderRadius: 10, border: '1px solid rgba(255,255,255,.15)', background: 'transparent', color: '#8a93a8', fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 16, cursor: 'pointer' },
-  ghostBtn: { padding: '9px 18px', borderRadius: 8, border: '1px solid rgba(255,255,255,.14)', background: 'transparent', color: '#8a93a8', fontFamily: "'JetBrains Mono',monospace", fontSize: 11, cursor: 'pointer' },
-  spinner: { width: 36, height: 36, borderRadius: '50%', border: '3px solid rgba(18,200,168,.2)', borderTopColor: '#12c8a8', animation: 'spin 0.8s linear infinite' },
-  spinnerText: { fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: '#5c6a8a' },
-} as const;
+const Page = styled.div`
+  min-height: 100dvh;
+  background: radial-gradient(ellipse 1000px 600px at 50% -5%, #0e1a24 0%, #05070c 60%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', sans-serif;
+  padding: 20px;
+`;
 
-const PS = {
-  backdrop: { position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 },
-  modal: { background: '#0d1220', border: '1px solid rgba(255,255,255,.1)', borderRadius: 16, padding: '24px 20px', minWidth: 280, boxShadow: '0 20px 50px rgba(0,0,0,.6)' },
-  row: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 },
-  avatar: { width: 52, height: 52, borderRadius: '50%', background: '#1a2040', border: '2px solid rgba(18,200,168,.35)', backgroundSize: 'cover', backgroundPosition: 'center', flex: 'none' as const },
-  name: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 18, color: '#e2e8f5' },
-  statsRow: { display: 'flex', gap: 8, marginBottom: 16 },
-  statBox: { flex: 1, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.07)', borderRadius: 10, padding: '10px 8px', textAlign: 'center' as const },
-  statLabel: { fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: '#5c6a8a', letterSpacing: '.08em', marginBottom: 6 },
-  statValue: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 24 },
-  addBtn: { width: '100%', padding: '9px 0', borderRadius: 9, border: '1px solid rgba(18,200,168,.5)', background: 'rgba(18,200,168,.1)', color: '#12c8a8', fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 13, cursor: 'pointer', marginBottom: 8 },
-  closeBtn: { width: '100%', padding: '8px 0', borderRadius: 9, border: '1px solid rgba(255,255,255,.1)', background: 'transparent', color: '#5c6a8a', fontFamily: "'Rajdhani',sans-serif", fontSize: 13, cursor: 'pointer', marginTop: 4 },
-} as const;
+const OuterLayout = styled.div`
+  width: 100%;
+  max-width: 980px;
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+`;
+
+const Layout = styled.div`
+  flex: 1;
+  min-width: 0;
+`;
+
+const ChatColumn = styled.div`
+  width: 240px;
+  flex: none;
+  height: 480px;
+  align-self: flex-start;
+`;
+
+const Center = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+`;
+
+const Header = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 40px;
+`;
+
+const LogoText = styled.div`
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.2em;
+  color: #12c8a8;
+`;
+
+const InviteBtn = styled.button`
+  padding: 6px 14px;
+  border-radius: 7px;
+  border: 1px solid rgba(18, 200, 168, 0.35);
+  background: rgba(18, 200, 168, 0.06);
+  color: #12c8a8;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  cursor: pointer;
+`;
+
+const LeaveBtn = styled.button`
+  padding: 6px 14px;
+  border-radius: 7px;
+  border: 1px solid rgba(239, 74, 99, 0.35);
+  background: rgba(239, 74, 99, 0.06);
+  color: #ef4a63;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  cursor: pointer;
+`;
+
+const ErrorBox = styled.div`
+  background: rgba(239, 74, 99, 0.1);
+  border: 1px solid rgba(239, 74, 99, 0.3);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: #ef4a63;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  margin-bottom: 16px;
+`;
+
+const PlayersRow = styled.div`
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+  flex-wrap: wrap;
+`;
+
+const PlayerCard = styled.div`
+  flex: 1 1 200px;
+  min-width: 200px;
+  background: #0d1220;
+  border: 1px solid;
+  border-radius: 16px;
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  transition: border-color 0.3s;
+`;
+
+const PlayerDot = styled.div`
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  margin-bottom: 4px;
+  background-size: cover;
+  background-position: center;
+  overflow: hidden;
+`;
+
+const PlayerName = styled.div`
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  color: #e2e8f5;
+`;
+
+const RoleTag = styled.div`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  color: #12c8a8;
+  margin-top: 2px;
+`;
+
+const ReadyBadge = styled.div`
+  margin-top: 8px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  transition: all 0.3s;
+`;
+
+const ViewProfileBtn = styled.button`
+  margin-top: 8px;
+  padding: 4px 12px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: #5c6a8a;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  cursor: pointer;
+`;
+
+const StartingText = styled.div`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #12c8a8;
+`;
+
+const WaitingIcon = styled.div`
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3a4256;
+  font-size: 20px;
+  margin-bottom: 4px;
+`;
+
+const ReadyBtn = styled.button`
+  padding: 12px 32px;
+  border-radius: 10px;
+  border: 1px solid rgba(18, 200, 168, 0.5);
+  background: rgba(18, 200, 168, 0.12);
+  color: #12c8a8;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+`;
+
+const CancelBtn = styled.button`
+  padding: 12px 32px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: transparent;
+  color: #8a93a8;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+`;
+
+const GhostBtn = styled.button`
+  padding: 9px 18px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: #8a93a8;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  cursor: pointer;
+`;
+
+const Spinner = styled.div`
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid rgba(18, 200, 168, 0.2);
+  border-top-color: #12c8a8;
+  animation: spin 0.8s linear infinite;
+`;
+
+const SpinnerText = styled.div`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #5c6a8a;
+`;
+
+const InviteFriendBtn = styled.button<{ $disabled: boolean }>`
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  cursor: ${p => (p.$disabled ? 'default' : 'pointer')};
+  border: ${p => (p.$disabled ? '1px solid rgba(255,255,255,.08)' : '1px solid rgba(18,200,168,.4)')};
+  background: ${p => (p.$disabled ? 'transparent' : 'rgba(18,200,168,.1)')};
+  color: ${p => (p.$disabled ? '#3a4256' : '#12c8a8')};
+`;
+
+// ── Modal (invite / profile popup) styles ───────────────────────────────────
+const Backdrop = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+`;
+
+const Modal = styled.div`
+  background: #0d1220;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 24px 20px;
+  min-width: 280px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+`;
+
+const ProfileRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+`;
+
+const ProfileAvatar = styled.div`
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #1a2040;
+  border: 2px solid rgba(18, 200, 168, 0.35);
+  background-size: cover;
+  background-position: center;
+  flex: none;
+`;
+
+const ProfileNameText = styled.div`
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  color: #e2e8f5;
+`;
+
+const StatsRow = styled.div`
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+`;
+
+const StatBox = styled.div`
+  flex: 1;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  padding: 10px 8px;
+  text-align: center;
+`;
+
+const StatLabel = styled.div`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #5c6a8a;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+`;
+
+const StatValue = styled.div`
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 24px;
+`;
+
+const AddBtn = styled.button`
+  width: 100%;
+  padding: 9px 0;
+  border-radius: 9px;
+  border: 1px solid rgba(18, 200, 168, 0.5);
+  background: rgba(18, 200, 168, 0.1);
+  color: #12c8a8;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  margin-bottom: 8px;
+`;
+
+const CloseBtn = styled.button`
+  width: 100%;
+  padding: 8px 0;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: #5c6a8a;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  margin-top: 4px;
+`;

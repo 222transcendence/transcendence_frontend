@@ -14,24 +14,40 @@ async function parseEnvelope<T>(response: Response): Promise<T> {
   return result.data;
 }
 
+// 여러 컴포넌트가 동시에 마운트되며 각자 401을 받거나 getValidAccessToken()을
+// 호출하면, 공유되는 in-flight 프로미스 없이 refreshAccessToken()이 병렬로
+// 여러 번 나갈 수 있다(#133). 진행 중인 갱신 요청을 모듈 스코프에서 공유해
+// 실제 네트워크 요청은 한 번만 나가도록 한다.
+let refreshPromise: Promise<string | null> | null = null;
+
 export async function refreshAccessToken(): Promise<string | null> {
-  const refreshToken = localStorage.getItem('refreshToken');
-  if (!refreshToken) return null;
-  try {
-    const response = await fetch('/api/auth/refresh', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
-    });
-    const result = (await response.json()) as ApiEnvelope<{ accessToken: string }>;
-    if (response.ok && !result.error && result.data?.accessToken) {
-      localStorage.setItem('accessToken', result.data.accessToken);
-      return result.data.accessToken;
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) return null;
+    try {
+      const response = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+      const result = (await response.json()) as ApiEnvelope<{ accessToken: string }>;
+      if (response.ok && !result.error && result.data?.accessToken) {
+        localStorage.setItem('accessToken', result.data.accessToken);
+        return result.data.accessToken;
+      }
+    } catch {
+      // network error — fall through
     }
-  } catch {
-    // network error — fall through
+    return null;
+  })();
+
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshPromise = null;
   }
-  return null;
 }
 
 function decodeJwtExpiryMs(token: string): number | null {
@@ -80,7 +96,9 @@ export async function logout(): Promise<void> {
 }
 
 async function authorizedFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  const token = localStorage.getItem('accessToken');
+  // 소켓 연결 경로(getValidAccessToken)와 동일하게, 만료된 토큰으로 요청을
+  // 보내고 401을 반응적으로 처리하는 대신 만료 임박이면 먼저 갱신한다(#133).
+  const token = await getValidAccessToken();
   const headers = new Headers(init.headers);
   if (token) headers.set('Authorization', `Bearer ${token}`);
 

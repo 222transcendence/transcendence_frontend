@@ -192,7 +192,7 @@ export default function AiMonitorPage() {
             </Card>
             <Card title="실행 프로필">
               <Field label="난이도">{enumLabel(snapshot.executionProfile.difficulty, DIFFICULTY_LABELS)}</Field><Field label="입력 속도 (WPM)">{value(snapshot.executionProfile.typingWpm)}</Field>
-              <Field label="정확도">{percent(snapshot.executionProfile.accuracy)}</Field><Field label="반응 지연">{value(snapshot.executionProfile.reactionDelayMs)} ms</Field>
+              <Field label="실효 처리량">{value(snapshot.executionProfile.effectiveWordsPerMinute)} WPM</Field><Field label="정확도">{percent(snapshot.executionProfile.accuracy)}</Field><Field label="반응 지연">{value(snapshot.executionProfile.reactionDelayMs)} ms</Field>
               <Field label="오타 확률">{percent(snapshot.executionProfile.typoProbability)}</Field><Field label="수정 지연">{value(snapshot.executionProfile.correctionDelayMs)} ms</Field>
               <Field label="포기 확률">{percent(snapshot.executionProfile.abandonProbability)}</Field>
             </Card>

@@ -38,7 +38,7 @@ if (!document.getElementById(styleId)) {
   const style = document.createElement('style');
   style.id = styleId;
   style.textContent = `
-    @keyframes fall { from { transform: translateY(-60px); } to { transform: translateY(calc(100vh - 40px)); } }
+    @keyframes fall { from { transform: translateY(-60px); } to { transform: translateY(calc(100dvh - 40px)); } }
     @keyframes pop-out { 0% { opacity:1; transform:scale(1); } 100% { opacity:0; transform:scale(1.6); } }
     @keyframes shrink-bar { from { width: 100%; } to { width: 0%; } }
     .word-chip { animation: fall linear forwards; position: absolute; cursor: default; user-select: none; }
@@ -427,7 +427,7 @@ export default function SpectateBoardPage() {
 // ── Styles ────────────────────────────────────────────────────────────────────
 const S = {
   page: {
-    minHeight: '100vh',
+    minHeight: '100dvh',
     background: 'radial-gradient(ellipse 1200px 700px at 50% -5%, #0a1520 0%, #05070c 60%)',
     fontFamily: "'Inter', sans-serif",
     display: 'flex',
@@ -436,7 +436,7 @@ const S = {
     padding: '12px',
   },
   center: {
-    minHeight: '100vh',
+    minHeight: '100dvh',
     display: 'flex',
     flexDirection: 'column' as const,
     alignItems: 'center',
@@ -458,7 +458,7 @@ const S = {
     display: 'flex',
     gap: 12,
     alignItems: 'stretch',
-    height: 'calc(100vh - 24px)',
+    height: 'calc(100dvh - 24px)',
   },
   gameCol: {
     flex: 1,
@@ -635,7 +635,7 @@ const S = {
     cursor: 'pointer',
   },
   endOverlay: {
-    minHeight: '100vh',
+    minHeight: '100dvh',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',

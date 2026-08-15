@@ -31,7 +31,7 @@ export function NavLink({ to, children }: { to: string; children: React.ReactNod
 
 const S = {
   page: {
-    minHeight: '100vh',
+    minHeight: '100dvh',
     background: '#05070c',
     padding: '28px 20px',
     fontFamily: "'Inter',sans-serif",

@@ -12,7 +12,7 @@ import type { FallingWord, MatchEndData, GamePhase, ParticipantState, HpByPartic
 const MAX_HP = 100;
 const MATCH_DURATION = 180;
 
-// fall 키프레임(translateY(-60px) → translateY(calc(100vh - 40px)))과 정확히 같은 값을
+// fall 키프레임(translateY(-60px) → translateY(calc(100dvh - 40px)))과 정확히 같은 값을
 // 써야 한다 — 정답 처리 순간 현재 낙하 위치를 계산해 pop-out 애니메이션에 그대로
 // 넘겨주기 위함(#93: 안 그러면 위치가 top으로 리셋된 채 사라지는 것처럼 보임).
 const FALL_START_Y = -60;
@@ -45,7 +45,7 @@ if (!document.getElementById(styleId)) {
   const style = document.createElement('style');
   style.id = styleId;
   style.textContent = `
-    @keyframes fall { from { transform: translateY(-60px); } to { transform: translateY(calc(100vh - 40px)); } }
+    @keyframes fall { from { transform: translateY(-60px); } to { transform: translateY(calc(100dvh - 40px)); } }
     @keyframes flash-green { 0%,100% { background: transparent; } 50% { background: rgba(18,200,168,.18); } }
     @keyframes flash-red   { 0%,100% { background: transparent; } 50% { background: rgba(239,74,99,.18); } }
     @keyframes pop-out { 0% { opacity:1; transform: translateY(var(--fall-y, 0px)) scale(1); } 100% { opacity:0; transform: translateY(var(--fall-y, 0px)) scale(1.6); } }
@@ -592,7 +592,7 @@ export default function GameBoardPage() {
 // ── Styles ────────────────────────────────────────────────────────────────────
 const S = {
   page: {
-    minHeight: '100vh',
+    minHeight: '100dvh',
     background: 'radial-gradient(ellipse 1200px 700px at 50% -5%, #0a1520 0%, #05070c 60%)',
     fontFamily: "'Inter', sans-serif",
     display: 'flex',
@@ -606,7 +606,7 @@ const S = {
     display: 'flex',
     gap: 12,
     alignItems: 'stretch',
-    height: 'calc(100vh - 24px)',
+    height: 'calc(100dvh - 24px)',
   },
   gameCol: {
     flex: 1,
@@ -840,7 +840,7 @@ const S = {
   },
   // End screen
   endOverlay: {
-    minHeight: '100vh',
+    minHeight: '100dvh',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',

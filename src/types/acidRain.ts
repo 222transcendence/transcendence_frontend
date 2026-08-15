@@ -44,6 +44,7 @@ export interface AiMonitorMetricMetadata {
 export interface AiMonitorExecutionProfile {
   difficulty: AiDifficulty;
   typingWpm: number;
+  effectiveWordsPerMinute: number;
   accuracy: number;
   reactionDelayMs: number;
   typoProbability: number;

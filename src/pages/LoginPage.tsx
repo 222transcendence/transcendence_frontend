@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import styled from 'styled-components';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -52,193 +53,209 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={S.page}>
-      <div style={S.card}>
+    <Page>
+      <Card>
         {/* Logo */}
-        <div style={S.logo}>Acid-Rain</div>
-        <div style={S.subtitle}>계정에 로그인하세요</div>
+        <Logo>Acid-Rain</Logo>
+        <Subtitle>계정에 로그인하세요</Subtitle>
 
-        {serverError && <div style={S.errorBox}>{serverError}</div>}
+        {serverError && <ErrorBox>{serverError}</ErrorBox>}
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <Form onSubmit={handleSubmit}>
           <div>
-            <label style={S.label}>이메일</label>
-            <input
+            <Label>이메일</Label>
+            <Input
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="name@example.com"
-              style={S.input}
             />
-            {errors.email && <div style={S.fieldError}>{errors.email}</div>}
+            {errors.email && <FieldError>{errors.email}</FieldError>}
           </div>
           <div>
-            <label style={S.label}>비밀번호</label>
-            <input
+            <Label>비밀번호</Label>
+            <Input
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               placeholder="••••••••"
-              style={S.input}
             />
-            {errors.password && <div style={S.fieldError}>{errors.password}</div>}
+            {errors.password && <FieldError>{errors.password}</FieldError>}
           </div>
-          <button type="submit" disabled={isLoading} style={S.submitBtn}>
+          <SubmitBtn type="submit" disabled={isLoading}>
             {isLoading ? '로그인 중…' : '로그인'}
-          </button>
-        </form>
+          </SubmitBtn>
+        </Form>
 
-        <div style={S.divider}><span style={S.dividerText}>또는</span></div>
+        <Divider><DividerText>또는</DividerText></Divider>
 
-        <button type="button" onClick={() => { window.location.href = '/api/auth/42'; }} style={S.oauthBtn}>
+        <OauthBtn type="button" onClick={() => { window.location.href = '/api/auth/42'; }}>
           <span style={{ fontWeight: 700, fontSize: 15 }}>42</span>
           <span>로 로그인</span>
-        </button>
+        </OauthBtn>
 
-        <div style={S.footer}>
+        <Footer>
           계정이 없으신가요?{' '}
-          <Link to="/signup" style={S.link}>회원가입</Link>
-        </div>
+          <FooterActionLink to="/signup">회원가입</FooterActionLink>
+        </Footer>
 
         <div style={{ marginTop: 24, textAlign: 'center' }}>
-          <Link to="/privacy-policy" style={S.footerLink}>개인정보처리방침</Link>
+          <FooterLink to="/privacy-policy">개인정보처리방침</FooterLink>
           <span style={{ color: '#3a4256', margin: '0 8px' }}>·</span>
-          <Link to="/terms-of-service" style={S.footerLink}>이용약관</Link>
+          <FooterLink to="/terms-of-service">이용약관</FooterLink>
         </div>
-      </div>
-    </div>
+      </Card>
+    </Page>
   );
 }
 
-const S = {
-  page: {
-    minHeight: '100dvh',
-    background: 'radial-gradient(ellipse 900px 600px at 50% -10%, #0e1a24 0%, #05070c 60%)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  card: {
-    width: '100%',
-    maxWidth: 420,
-    background: '#0d1220',
-    border: '1px solid rgba(255,255,255,.08)',
-    borderRadius: 20,
-    padding: '40px 36px',
-    boxShadow: '0 24px 60px rgba(0,0,0,.5)',
-  },
-  logo: {
-    fontFamily: "'Rajdhani',sans-serif",
-    fontWeight: 700 as const,
-    fontSize: 22,
-    letterSpacing: '.25em',
-    color: '#12c8a8',
-    textAlign: 'center' as const,
-    marginBottom: 6,
-  },
-  subtitle: {
-    fontFamily: "'Inter',sans-serif",
-    fontSize: 13,
-    color: '#5c6a8a',
-    textAlign: 'center' as const,
-    marginBottom: 28,
-  },
-  errorBox: {
-    background: 'rgba(239,74,99,.1)',
-    border: '1px solid rgba(239,74,99,.3)',
-    borderRadius: 10,
-    padding: '10px 14px',
-    color: '#ef4a63',
-    fontSize: 13,
-    marginBottom: 16,
-    fontFamily: "'JetBrains Mono',monospace",
-  },
-  label: {
-    display: 'block' as const,
-    fontFamily: "'JetBrains Mono',monospace",
-    fontSize: 10,
-    letterSpacing: '.1em',
-    color: '#5c6a8a',
-    marginBottom: 6,
-    textTransform: 'uppercase' as const,
-  },
-  input: {
-    width: '100%',
-    padding: '11px 14px',
-    borderRadius: 9,
-    border: '1px solid rgba(255,255,255,.1)',
-    background: 'rgba(255,255,255,.03)',
-    color: '#e2e8f5',
-    fontFamily: "'Inter',sans-serif",
-    fontSize: 14,
-    outline: 'none',
-  },
-  fieldError: {
-    marginTop: 5,
-    fontFamily: "'JetBrains Mono',monospace",
-    fontSize: 11,
-    color: '#ef4a63',
-  },
-  submitBtn: {
-    width: '100%',
-    padding: '13px 0',
-    borderRadius: 10,
-    border: '1px solid rgba(18,200,168,.5)',
-    background: 'rgba(18,200,168,.12)',
-    color: '#12c8a8',
-    fontFamily: "'Rajdhani',sans-serif",
-    fontWeight: 700 as const,
-    fontSize: 15,
-    cursor: 'pointer',
-    marginTop: 4,
-  },
-  divider: {
-    textAlign: 'center' as const,
-    margin: '20px 0',
-    position: 'relative' as const,
-    borderTop: '1px solid rgba(255,255,255,.07)',
-  },
-  dividerText: {
-    position: 'relative' as const,
-    top: -10,
-    background: '#0d1220',
-    padding: '0 12px',
-    fontFamily: "'JetBrains Mono',monospace",
-    fontSize: 10,
-    color: '#5c6a8a',
-  },
-  oauthBtn: {
-    width: '100%',
-    padding: '12px 0',
-    borderRadius: 10,
-    border: '1px solid rgba(255,255,255,.12)',
-    background: 'rgba(255,255,255,.03)',
-    color: '#c7cede',
-    fontFamily: "'Inter',sans-serif",
-    fontSize: 14,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  footer: {
-    marginTop: 22,
-    textAlign: 'center' as const,
-    fontFamily: "'Inter',sans-serif",
-    fontSize: 13,
-    color: '#5c6a8a',
-  },
-  link: {
-    color: '#12c8a8',
-    textDecoration: 'none',
-    fontWeight: 600 as const,
-  },
-  footerLink: {
-    color: '#3a4256',
-    textDecoration: 'none',
-    fontSize: 11,
-    fontFamily: "'JetBrains Mono',monospace",
-  },
-} as const;
+const Page = styled.div`
+  min-height: 100dvh;
+  background: radial-gradient(ellipse 900px 600px at 50% -10%, #0e1a24 0%, #05070c 60%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+`;
+
+const Card = styled.div`
+  width: 100%;
+  max-width: 420px;
+  background: #0d1220;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 40px 36px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+`;
+
+const Logo = styled.div`
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 0.25em;
+  color: #12c8a8;
+  text-align: center;
+  margin-bottom: 6px;
+`;
+
+const Subtitle = styled.div`
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: #5c6a8a;
+  text-align: center;
+  margin-bottom: 28px;
+`;
+
+const ErrorBox = styled.div`
+  background: rgba(239, 74, 99, 0.1);
+  border: 1px solid rgba(239, 74, 99, 0.3);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: #ef4a63;
+  font-size: 13px;
+  margin-bottom: 16px;
+  font-family: 'JetBrains Mono', monospace;
+`;
+
+const Form = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+`;
+
+const Label = styled.label`
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: #5c6a8a;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+`;
+
+const Input = styled.input`
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: #e2e8f5;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  outline: none;
+`;
+
+const FieldError = styled.div`
+  margin-top: 5px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #ef4a63;
+`;
+
+const SubmitBtn = styled.button`
+  width: 100%;
+  padding: 13px 0;
+  border-radius: 10px;
+  border: 1px solid rgba(18, 200, 168, 0.5);
+  background: rgba(18, 200, 168, 0.12);
+  color: #12c8a8;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  margin-top: 4px;
+`;
+
+const Divider = styled.div`
+  text-align: center;
+  margin: 20px 0;
+  position: relative;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+`;
+
+const DividerText = styled.span`
+  position: relative;
+  top: -10px;
+  background: #0d1220;
+  padding: 0 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #5c6a8a;
+`;
+
+const OauthBtn = styled.button`
+  width: 100%;
+  padding: 12px 0;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  color: #c7cede;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+`;
+
+const Footer = styled.div`
+  margin-top: 22px;
+  text-align: center;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: #5c6a8a;
+`;
+
+const FooterActionLink = styled(Link)`
+  color: #12c8a8;
+  text-decoration: none;
+  font-weight: 600;
+`;
+
+const FooterLink = styled(Link)`
+  color: #3a4256;
+  text-decoration: none;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+`;

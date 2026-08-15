@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
+import styled from 'styled-components';
 import { fetchLeaderboard } from '../api/gameStats';
 import { fetchChatHistory, getValidAccessToken } from '../api/client';
 import type { LeaderboardEntry } from '../types/gameStats';
@@ -175,52 +176,51 @@ export default function LobbyPage() {
   };
 
   return (
-    <div style={S.page} onClick={() => setProfileMenuOpen(false)}>
+    <Page onClick={() => setProfileMenuOpen(false)}>
       {/* Sidebar */}
-      <nav style={S.sidebar}>
-        <a href="/lobby" style={{ ...S.logo, textDecoration: 'none', cursor: 'pointer' }}>Acid-Rain</a>
+      <Sidebar>
+        <Logo href="/lobby">Acid-Rain</Logo>
 
         {/* Profile card — clickable dropdown */}
         <div style={{ position: 'relative' as const }}>
-          <button
+          <UserChip
             onClick={e => { e.stopPropagation(); setProfileMenuOpen(o => !o); }}
-            style={S.userChip}
           >
-            <div style={{ ...S.avatar, backgroundImage: myAvatar ? `url(${myAvatar})` : 'none' }} />
+            <Avatar style={{ backgroundImage: myAvatar ? `url(${myAvatar})` : 'none' }} />
             <div style={{ flex: 1, textAlign: 'left' as const }}>
-              <div style={S.userName}>{myNickname || '…'}</div>
-              <div style={S.userOnline}>● Online</div>
+              <UserName>{myNickname || '…'}</UserName>
+              <UserOnline>● Online</UserOnline>
             </div>
             <div style={{ color: '#5c6a8a', fontSize: 10 }}>{profileMenuOpen ? '▲' : '▼'}</div>
-          </button>
+          </UserChip>
           {profileMenuOpen && (
-            <div style={S.profileDropdown} onClick={e => e.stopPropagation()}>
-              <Link to="/profile" style={S.dropdownItem} onClick={() => setProfileMenuOpen(false)}>내 프로필</Link>
-              <div style={S.dropdownDivider} />
-              <button onClick={() => { localStorage.clear(); navigate('/login'); }} style={S.dropdownDangerItem}>로그아웃</button>
-            </div>
+            <ProfileDropdown onClick={e => e.stopPropagation()}>
+              <DropdownItem to="/profile" onClick={() => setProfileMenuOpen(false)}>내 프로필</DropdownItem>
+              <DropdownDivider />
+              <DropdownDangerItem onClick={() => { localStorage.clear(); navigate('/login'); }}>로그아웃</DropdownDangerItem>
+            </ProfileDropdown>
           )}
         </div>
 
-        <div style={S.navList}>
+        <NavList>
           {(['lobby', 'friends', 'leaderboard'] as Tab[]).map(t => (
-            <button key={t} onClick={() => setTab(t)} style={{ ...S.navBtn, ...(tab === t ? S.navBtnActive : {}) }}>
+            <NavBtn key={t} onClick={() => setTab(t)} $active={tab === t}>
               {NAV_ICON[t]} {NAV_LABEL[t]}
-            </button>
+            </NavBtn>
           ))}
-        </div>
+        </NavList>
 
         <div style={{ flex: 1 }} />
 
-        <div style={S.sidebarFooter}>
-          <Link to="/terms-of-service" style={S.footerLink}>이용약관</Link>
-          <span style={S.footerDot}>·</span>
-          <Link to="/privacy-policy" style={S.footerLink}>개인정보처리방침</Link>
-        </div>
-      </nav>
+        <SidebarFooter>
+          <FooterLink to="/terms-of-service">이용약관</FooterLink>
+          <FooterDot>·</FooterDot>
+          <FooterLink to="/privacy-policy">개인정보처리방침</FooterLink>
+        </SidebarFooter>
+      </Sidebar>
 
       {/* Main */}
-      <main style={S.main}>
+      <Main>
         {tab === 'lobby' && (
           <LobbyTab
             rooms={displayRooms} isConnecting={isConnecting} connectionError={connectionError}
@@ -246,7 +246,7 @@ export default function LobbyPage() {
             <LeaderboardTab entries={leaderboard} myUserId={myUserId} />
           </div>
         )}
-      </main>
+      </Main>
 
       {pendingJoinRoom && (
         <div style={{ display: 'none' }} />
@@ -261,7 +261,7 @@ export default function LobbyPage() {
           navigate={navigate}
         />
       )}
-    </div>
+    </Page>
   );
 }
 
@@ -277,21 +277,21 @@ function LobbyTab({ rooms, isConnecting, connectionError, onCreateRoom, onJoinRo
   return (
     <div style={{ display: 'flex', flexDirection: 'column' as const, height: '100%' }}>
       <div style={{ flex: 1, overflowY: 'auto' as const, paddingBottom: 12 }}>
-        <div style={S.sectionHeader}>
+        <SectionHeader>
           <div>
-            <div style={S.sectionTitle}>게임 로비</div>
-            <div style={S.sectionSub}>{rooms.length}개 방이 열려있습니다</div>
+            <SectionTitle>게임 로비</SectionTitle>
+            <SectionSub>{rooms.length}개 방이 열려있습니다</SectionSub>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={onCreateRoom} disabled={isConnecting} style={S.primaryBtn}>+ 방 만들기</button>
-            <button onClick={onAiClick} style={S.ghostBtn}>AI 대전</button>
+            <PrimaryBtn onClick={onCreateRoom} disabled={isConnecting}>+ 방 만들기</PrimaryBtn>
+            <GhostBtn onClick={onAiClick}>AI 대전</GhostBtn>
           </div>
-        </div>
-        {connectionError && <div style={S.errorBanner}>{connectionError}</div>}
+        </SectionHeader>
+        {connectionError && <ErrorBanner>{connectionError}</ErrorBanner>}
         {isConnecting ? (
-          <div style={S.emptyState}>로비에 연결 중…</div>
+          <EmptyState>로비에 연결 중…</EmptyState>
         ) : rooms.length === 0 ? (
-          <div style={S.emptyState}>열린 방이 없습니다. 방을 만들어보세요!</div>
+          <EmptyState>열린 방이 없습니다. 방을 만들어보세요!</EmptyState>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             {rooms.map(room => {
@@ -300,23 +300,25 @@ function LobbyTab({ rooms, isConnecting, connectionError, onCreateRoom, onJoinRo
               const isWaitingFull = room.players.length >= room.maxPlayers;
               const isOwnRoom = room.players.some(p => p.userId === currentUserId);
               return (
-                <div key={room.id} style={{ ...S.card, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Card key={room.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
-                    <div style={S.cardTitle}>{host?.nickname ?? '알 수 없음'}의 방</div>
-                    <div style={S.cardSub}>{room.players.length}/{room.maxPlayers} 명 · {isInGame ? '게임 중' : '대기 중'}</div>
+                    <CardTitle>{host?.nickname ?? '알 수 없음'}의 방</CardTitle>
+                    <CardSub>{room.players.length}/{room.maxPlayers} 명 · {isInGame ? '게임 중' : '대기 중'}</CardSub>
                   </div>
                   {isInGame ? (
                     isOwnRoom ? (
-                      <button onClick={() => onRejoinRoom(room)} style={S.primaryBtn}>재접속하기</button>
+                      <PrimaryBtn onClick={() => onRejoinRoom(room)}>재접속하기</PrimaryBtn>
                     ) : (
-                      <button onClick={() => onSpectateRoom(room)} style={S.ghostBtn}>👁 관전하기</button>
+                      <GhostBtn onClick={() => onSpectateRoom(room)}>👁 관전하기</GhostBtn>
                     )
                   ) : (
-                    <button onClick={() => onJoinRoom(room)} disabled={isWaitingFull} style={isWaitingFull ? S.disabledBtn : S.primaryBtn}>
-                      {isWaitingFull ? '참가 불가' : '참가하기'}
-                    </button>
+                    isWaitingFull ? (
+                      <DisabledBtn disabled>참가 불가</DisabledBtn>
+                    ) : (
+                      <PrimaryBtn onClick={() => onJoinRoom(room)}>참가하기</PrimaryBtn>
+                    )
                   )}
-                </div>
+                </Card>
               );
             })}
           </div>
@@ -338,49 +340,49 @@ function FriendsTab({ friends, pendingRequests, sentRequests, addNickname, addMs
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 18 }}>
-      <div style={S.sectionTitle}>친구 목록</div>
+      <SectionTitle>친구 목록</SectionTitle>
 
-      <div style={S.card}>
-        <div style={S.cardTitle}>친구 추가</div>
+      <Card>
+        <CardTitle>친구 추가</CardTitle>
         <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-          <input value={addNickname} onChange={e => onAddNicknameChange(e.target.value)} onKeyDown={e => e.key === 'Enter' && onAddFriend()} placeholder="닉네임 입력" style={S.input} />
-          <button onClick={onAddFriend} style={S.primaryBtn}>요청</button>
+          <Input value={addNickname} onChange={e => onAddNicknameChange(e.target.value)} onKeyDown={e => e.key === 'Enter' && onAddFriend()} placeholder="닉네임 입력" />
+          <PrimaryBtn onClick={onAddFriend}>요청</PrimaryBtn>
         </div>
-        {addMsg && <div style={S.infoText}>{addMsg}</div>}
-      </div>
+        {addMsg && <InfoText>{addMsg}</InfoText>}
+      </Card>
 
-      <div style={S.card}>
-        <div style={S.cardTitle}>친구 요청 {pendingRequests.length > 0 && <span style={{ color: '#ef4a63', marginLeft: 6 }}>({pendingRequests.length})</span>}</div>
+      <Card>
+        <CardTitle>친구 요청 {pendingRequests.length > 0 && <span style={{ color: '#ef4a63', marginLeft: 6 }}>({pendingRequests.length})</span>}</CardTitle>
         {pendingRequests.length === 0 ? (
-          <div style={{ ...S.cardSub, marginTop: 8 }}>받은 친구 요청이 없습니다.</div>
+          <CardSub style={{ marginTop: 8 }}>받은 친구 요청이 없습니다.</CardSub>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8, marginTop: 10 }}>
             {pendingRequests.map(req => (
               <div key={req.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ ...S.friendAvatar, backgroundImage: req.requester.avatar ? `url(${req.requester.avatar})` : 'none' }} />
+                  <FriendAvatar style={{ backgroundImage: req.requester.avatar ? `url(${req.requester.avatar})` : 'none' }} />
                   <span style={{ fontSize: 13, color: '#c7cede' }}>{req.requester.nickname}</span>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button onClick={() => onRespond(req.id, 'accept')} style={S.primaryBtnSm}>수락</button>
-                  <button onClick={() => onRespond(req.id, 'reject')} style={S.dangerBtnSm}>거절</button>
+                  <PrimaryBtnSm onClick={() => onRespond(req.id, 'accept')}>수락</PrimaryBtnSm>
+                  <DangerBtnSm onClick={() => onRespond(req.id, 'reject')}>거절</DangerBtnSm>
                 </div>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </Card>
 
-      <div style={S.card}>
-        <div style={S.cardTitle}>보낸 요청 {sentRequests.length > 0 && <span style={{ color: '#5c6a8a', marginLeft: 6 }}>({sentRequests.length})</span>}</div>
+      <Card>
+        <CardTitle>보낸 요청 {sentRequests.length > 0 && <span style={{ color: '#5c6a8a', marginLeft: 6 }}>({sentRequests.length})</span>}</CardTitle>
         {sentRequests.length === 0 ? (
-          <div style={{ ...S.cardSub, marginTop: 8 }}>보낸 친구 요청이 없습니다.</div>
+          <CardSub style={{ marginTop: 8 }}>보낸 친구 요청이 없습니다.</CardSub>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8, marginTop: 10 }}>
             {sentRequests.map(req => (
               <div key={req.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ ...S.friendAvatar, backgroundImage: req.receiver.avatar ? `url(${req.receiver.avatar})` : 'none' }} />
+                  <FriendAvatar style={{ backgroundImage: req.receiver.avatar ? `url(${req.receiver.avatar})` : 'none' }} />
                   <span style={{ fontSize: 13, color: '#c7cede' }}>{req.receiver.nickname}</span>
                 </div>
                 <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: '#5c6a8a' }}>대기 중</span>
@@ -388,28 +390,28 @@ function FriendsTab({ friends, pendingRequests, sentRequests, addNickname, addMs
             ))}
           </div>
         )}
-      </div>
+      </Card>
 
-      <div style={S.card}>
-        <div style={S.cardTitle}>친구 ({friends.length})</div>
+      <Card>
+        <CardTitle>친구 ({friends.length})</CardTitle>
         {friends.length === 0 ? (
-          <div style={{ ...S.cardSub, marginTop: 8 }}>친구가 없습니다.</div>
+          <CardSub style={{ marginTop: 8 }}>친구가 없습니다.</CardSub>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8, marginTop: 10 }}>
             {friends.map(f => (
               <div key={f.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <button onClick={() => onFriendClick(f)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                  <div style={{ ...S.friendAvatar, backgroundImage: f.avatar ? `url(${f.avatar})` : 'none' }} />
+                  <FriendAvatar style={{ backgroundImage: f.avatar ? `url(${f.avatar})` : 'none' }} />
                   <span style={{ fontSize: 8, color: f.status === 'ONLINE' ? '#12c8a8' : f.status === 'IN_GAME' ? '#eab308' : '#5c6a8a' }}>●</span>
                   <span style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, color: '#c7cede' }}>{f.nickname}</span>
                   <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: '#5c6a8a' }}>{f.status}</span>
                 </button>
-                <button onClick={() => onRemove(f.id)} style={S.dangerBtnSm}>삭제</button>
+                <DangerBtnSm onClick={() => onRemove(f.id)}>삭제</DangerBtnSm>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }
@@ -425,9 +427,9 @@ const LB_RANK_META = [
 function LeaderboardTab({ entries, myUserId }: { entries: LeaderboardEntry[]; myUserId: string }) {
   return (
     <div>
-      <div style={S.sectionTitle}>리더보드</div>
+      <SectionTitle>리더보드</SectionTitle>
       {entries.length === 0 ? (
-        <div style={S.emptyState}>불러오는 중…</div>
+        <EmptyState>불러오는 중…</EmptyState>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 6, marginTop: 18 }}>
           {entries.map((entry, i) => {
@@ -489,17 +491,17 @@ function FriendProfilePopup({ friend, friendIds, onClose }: { friend: Friend; fr
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => { navigate(`/stats/${friend.id}`); onClose(); }} style={{ ...S.primaryBtn, flex: 1 }}>전적 보기</button>
-          <button onClick={() => { navigate(`/profile/${friend.id}`); onClose(); }} style={{ ...S.ghostBtn, flex: 1 }}>프로필</button>
+          <PrimaryBtn onClick={() => { navigate(`/stats/${friend.id}`); onClose(); }} style={{ flex: 1 }}>전적 보기</PrimaryBtn>
+          <GhostBtn onClick={() => { navigate(`/profile/${friend.id}`); onClose(); }} style={{ flex: 1 }}>프로필</GhostBtn>
         </div>
         {!isFriend && (
           <div style={{ marginTop: 8 }}>
-            <button style={{ ...S.primaryBtn, width: '100%' }} onClick={async () => {
+            <PrimaryBtn style={{ width: '100%' }} onClick={async () => {
               try {
                 const { sendFriendRequest } = await import('../api/client');
                 await sendFriendRequest(friend.id); onClose();
               } catch { /* already sent */ }
-            }}>친구 추가</button>
+            }}>친구 추가</PrimaryBtn>
           </div>
         )}
       </div>
@@ -552,64 +554,152 @@ function AiDifficultyModal({
   };
 
   return (
-    <div style={AS.backdrop} onClick={onClose}>
-      <div style={AS.modal} onClick={e => e.stopPropagation()}>
-        <div style={AS.title}>AI 실력 선택</div>
-        <div style={AS.subtitle}>게임 규칙과 시간별 난이도 상승은 온라인 대전과 동일합니다.</div>
+    <AiBackdrop onClick={onClose}>
+      <AiModal onClick={e => e.stopPropagation()}>
+        <AiTitle>AI 실력 선택</AiTitle>
+        <AiSubtitle>게임 규칙과 시간별 난이도 상승은 온라인 대전과 동일합니다.</AiSubtitle>
 
-        <div style={AS.cardRow}>
+        <AiCardRow>
           {AI_DIFFICULTY_CARDS.map(c => {
             const selected = c.key === difficulty;
             return (
-              <button
+              <AiCard
                 key={c.key}
                 onClick={() => { if (!loading) setDifficulty(c.key); }}
-                style={{ ...AS.card, ...(selected ? AS.cardSelected : {}), ...(loading ? { opacity: 0.6, cursor: 'not-allowed' } : {}) }}
+                $selected={selected}
+                $loading={loading}
                 aria-pressed={selected}
                 disabled={loading}
               >
-                <div style={AS.cardLabelRow}>
-                  <span style={AS.cardLabel}>{c.label}</span>
-                  {selected && <span style={AS.cardCheck}>✓</span>}
-                </div>
-                <div style={AS.cardDesc}>{c.desc}</div>
-              </button>
+                <AiCardLabelRow>
+                  <AiCardLabel>{c.label}</AiCardLabel>
+                  {selected && <AiCardCheck>✓</AiCardCheck>}
+                </AiCardLabelRow>
+                <AiCardDesc>{c.desc}</AiCardDesc>
+              </AiCard>
             );
           })}
-        </div>
+        </AiCardRow>
 
-        <div style={AS.notice}>AI 대전 결과는 PvP 랭킹에 반영되지 않습니다.</div>
+        <AiNotice>AI 대전 결과는 PvP 랭킹에 반영되지 않습니다.</AiNotice>
 
-        {error && <div style={AS.errorMsg}>{error}</div>}
+        {error && <AiErrorMsg>{error}</AiErrorMsg>}
 
-        <button
+        <PrimaryBtn
           onClick={handleStart}
           disabled={loading}
-          style={{ ...S.primaryBtn, width: '100%', padding: '10px 0', opacity: loading ? 0.6 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
+          style={{ width: '100%', padding: '10px 0', opacity: loading ? 0.6 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
         >
           {loading ? '연결 중…' : 'AI 대전 시작'}
-        </button>
-        <button onClick={onClose} disabled={loading} style={{ ...S.ghostBtn, width: '100%', marginTop: 8, opacity: loading ? 0.4 : 1 }}>닫기</button>
-      </div>
-    </div>
+        </PrimaryBtn>
+        <GhostBtn onClick={onClose} disabled={loading} style={{ width: '100%', marginTop: 8, opacity: loading ? 0.4 : 1 }}>닫기</GhostBtn>
+      </AiModal>
+    </AiBackdrop>
   );
 }
 
-const AS = {
-  backdrop: { position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 },
-  modal: { background: '#0d1220', border: '1px solid rgba(255,255,255,.1)', borderRadius: 16, padding: '24px 22px', width: 380, boxShadow: '0 20px 50px rgba(0,0,0,.6)' },
-  title: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 18, color: '#e2e8f5', marginBottom: 6 },
-  subtitle: { fontFamily: "'JetBrains Mono',monospace", fontSize: 10.5, color: '#5c6a8a', marginBottom: 18, lineHeight: 1.5 },
-  cardRow: { display: 'flex', gap: 8, marginBottom: 16 },
-  card: { flex: 1, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 10, padding: '12px 10px', cursor: 'pointer', textAlign: 'left' as const, display: 'flex', flexDirection: 'column' as const, gap: 6 },
-  cardSelected: { background: 'rgba(18,200,168,.1)', border: '1.5px solid rgba(18,200,168,.6)' },
-  cardLabelRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
-  cardLabel: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 13, color: '#e2e8f5' },
-  cardCheck: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 13, color: '#12c8a8' },
-  cardDesc: { fontFamily: "'Inter',sans-serif", fontSize: 10.5, color: '#8a93a8', lineHeight: 1.4 },
-  notice: { fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: '#5c6a8a', textAlign: 'center' as const, marginBottom: 14 },
-  errorMsg: { fontFamily: "'JetBrains Mono',monospace", fontSize: 11.5, color: '#f87171', textAlign: 'center' as const, background: 'rgba(248,113,113,.08)', border: '1px solid rgba(248,113,113,.3)', borderRadius: 8, padding: '10px 8px', marginBottom: 12 },
-} as const;
+const AiBackdrop = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+`;
+
+const AiModal = styled.div`
+  background: #0d1220;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 24px 22px;
+  width: 380px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+`;
+
+const AiTitle = styled.div`
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  color: #e2e8f5;
+  margin-bottom: 6px;
+`;
+
+const AiSubtitle = styled.div`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  color: #5c6a8a;
+  margin-bottom: 18px;
+  line-height: 1.5;
+`;
+
+const AiCardRow = styled.div`
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+`;
+
+const AiCard = styled.button<{ $selected: boolean; $loading: boolean }>`
+  flex: 1;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 12px 10px;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  ${p => (p.$selected ? 'background: rgba(18,200,168,.1); border: 1.5px solid rgba(18,200,168,.6);' : '')}
+  ${p => (p.$loading ? 'opacity: 0.6; cursor: not-allowed;' : '')}
+`;
+
+const AiCardLabelRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`;
+
+const AiCardLabel = styled.span`
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: #e2e8f5;
+`;
+
+const AiCardCheck = styled.span`
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: #12c8a8;
+`;
+
+const AiCardDesc = styled.div`
+  font-family: 'Inter', sans-serif;
+  font-size: 10.5px;
+  color: #8a93a8;
+  line-height: 1.4;
+`;
+
+const AiNotice = styled.div`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #5c6a8a;
+  text-align: center;
+  margin-bottom: 14px;
+`;
+
+const AiErrorMsg = styled.div`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  color: #f87171;
+  text-align: center;
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-radius: 8px;
+  padding: 10px 8px;
+  margin-bottom: 12px;
+`;
 
 // ── Global chat ───────────────────────────────────────────────────────────────
 
@@ -662,33 +752,33 @@ function GlobalChatPanel({ currentUserId }: { currentUserId: string }) {
   };
 
   return (
-    <div style={{ ...CS.panel, height }}>
+    <ChatPanelWrapper style={{ height }}>
       {/* Drag handle */}
-      <div style={CS.dragHandle} onMouseDown={onDragStart} title="드래그로 크기 조절">
-        <div style={CS.dragBar} />
-      </div>
-      <div style={CS.header}>
-        <span style={CS.headerLabel}>GLOBAL CHAT</span>
-      </div>
-      <div style={CS.messages}>
-        {messages.length === 0 && <div style={CS.empty}>아직 메시지가 없습니다</div>}
+      <DragHandle onMouseDown={onDragStart} title="드래그로 크기 조절">
+        <DragBar />
+      </DragHandle>
+      <ChatHeader>
+        <ChatHeaderLabel>GLOBAL CHAT</ChatHeaderLabel>
+      </ChatHeader>
+      <ChatMessages>
+        {messages.length === 0 && <ChatEmpty>아직 메시지가 없습니다</ChatEmpty>}
         {messages.map(msg => {
           const isMine = msg.sender.id === currentUserId;
           return (
             <div key={msg.id} style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-              <span style={{ ...CS.nick, color: isMine ? '#12c8a8' : '#5c6a8a' }}>{isMine ? '나' : msg.sender.nickname}:</span>
-              <span style={CS.text}>{msg.content}</span>
-              <span style={CS.time}>{new Date(msg.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
+              <ChatNick style={{ color: isMine ? '#12c8a8' : '#5c6a8a' }}>{isMine ? '나' : msg.sender.nickname}:</ChatNick>
+              <ChatText>{msg.content}</ChatText>
+              <ChatTime>{new Date(msg.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</ChatTime>
             </div>
           );
         })}
         <div ref={bottomRef} />
-      </div>
-      <div style={CS.inputRow}>
-        <input value={input} onChange={e => setInput(e.target.value)} onCompositionStart={() => { isComposingRef.current = true; }} onCompositionEnd={() => { isComposingRef.current = false; }} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && !isComposingRef.current) send(); }} placeholder="메시지 입력..." style={CS.input} />
-        <button onClick={send} disabled={!input.trim()} style={{ ...CS.sendBtn, opacity: input.trim() ? 1 : 0.4 }}>전송</button>
-      </div>
-    </div>
+      </ChatMessages>
+      <ChatInputRow>
+        <ChatInput value={input} onChange={e => setInput(e.target.value)} onCompositionStart={() => { isComposingRef.current = true; }} onCompositionEnd={() => { isComposingRef.current = false; }} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && !isComposingRef.current) send(); }} placeholder="메시지 입력..." />
+        <ChatSendBtn onClick={send} disabled={!input.trim()} style={{ opacity: input.trim() ? 1 : 0.4 }}>전송</ChatSendBtn>
+      </ChatInputRow>
+    </ChatPanelWrapper>
   );
 }
 
@@ -697,55 +787,431 @@ const NAV_ICON: Record<Tab, string> = { lobby: '⊞', friends: '♛', leaderboar
 const NAV_LABEL: Record<Tab, string> = { lobby: '로비', friends: '친구', leaderboard: '리더보드' };
 
 // ── Styles ────────────────────────────────────────────────────────────────────
-const S = {
-  page: { minHeight: '100dvh', background: '#05070c', display: 'flex', fontFamily: "'Inter',sans-serif" },
-  sidebar: { width: 220, minHeight: '100dvh', background: '#0a0e1a', borderRight: '1px solid rgba(255,255,255,.06)', display: 'flex', flexDirection: 'column' as const, padding: '20px 14px', gap: 4, flex: 'none' as const },
-  logo: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 13, letterSpacing: '.2em', color: '#12c8a8', marginBottom: 16 },
-  userChip: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px', borderRadius: 10, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.06)', marginBottom: 14, cursor: 'pointer', width: '100%', textAlign: 'left' as const },
-  avatar: { width: 34, height: 34, borderRadius: '50%', background: '#1a2040', backgroundSize: 'cover', backgroundPosition: 'center', flex: 'none' as const },
-  userName: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 13, color: '#e2e8f5' },
-  userOnline: { fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: '#12c8a8', marginTop: 1 },
-  profileDropdown: { position: 'absolute' as const, top: '100%', left: 0, right: 0, marginTop: 4, background: '#0d1220', border: '1px solid rgba(255,255,255,.1)', borderRadius: 10, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,.4)', zIndex: 50 },
-  dropdownItem: { display: 'block', padding: '10px 14px', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 as const, fontSize: 13, color: '#c7cede', textDecoration: 'none' as const },
-  dropdownDivider: { height: 1, background: 'rgba(255,255,255,.06)' },
-  dropdownDangerItem: { display: 'block', padding: '10px 14px', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 as const, fontSize: 13, color: '#ef4a63', background: 'transparent', border: 'none', width: '100%', textAlign: 'left' as const, cursor: 'pointer' },
-  navList: { display: 'flex', flexDirection: 'column' as const, gap: 2, flex: 1 },
-  navBtn: { display: 'flex', alignItems: 'center', gap: 9, padding: '9px 11px', borderRadius: 8, border: 'none', background: 'transparent', color: '#5c6a8a', fontFamily: "'Rajdhani',sans-serif", fontWeight: 600 as const, fontSize: 13, cursor: 'pointer', textAlign: 'left' as const },
-  sidebarFooter: { display: 'flex', alignItems: 'center', gap: 4, padding: '10px 4px 4px', flexWrap: 'wrap' as const },
-  footerLink: { fontFamily: "'Inter',sans-serif", fontSize: 11, color: '#3a4460', textDecoration: 'none', lineHeight: 1.4 },
-  footerDot: { fontSize: 10, color: '#2a3250' },
-  navBtnActive: { background: 'rgba(18,200,168,.1)', color: '#12c8a8', border: '1px solid rgba(18,200,168,.25)' },
-  main: { flex: 1, padding: '28px 24px 20px', display: 'flex', flexDirection: 'column' as const, height: '100dvh', overflow: 'hidden', minWidth: 0 },
-  sectionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 18, flexWrap: 'wrap' as const, gap: 10 },
-  sectionTitle: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 22, color: '#e2e8f5', marginBottom: 4 },
-  sectionSub: { fontFamily: "'JetBrains Mono',monospace", fontSize: 10.5, color: '#5c6a8a' },
-  card: { background: '#0d1220', border: '1px solid rgba(255,255,255,.07)', borderRadius: 12, padding: '14px 16px' },
-  cardTitle: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 15, color: '#c7cede' },
-  cardSub: { fontFamily: "'JetBrains Mono',monospace", fontSize: 10.5, color: '#5c6a8a', marginTop: 3 },
-  primaryBtn: { padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(18,200,168,.5)', background: 'rgba(18,200,168,.1)', color: '#12c8a8', fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' as const },
-  primaryBtnSm: { padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(18,200,168,.5)', background: 'rgba(18,200,168,.1)', color: '#12c8a8', fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 12, cursor: 'pointer' },
-  dangerBtnSm: { padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(239,74,99,.35)', background: 'rgba(239,74,99,.06)', color: '#ef4a63', fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 12, cursor: 'pointer' },
-  ghostBtn: { padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,.14)', background: 'transparent', color: '#8a93a8', fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' as const },
-  disabledBtn: { padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,.08)', background: 'transparent', color: '#3a4256', fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 13, cursor: 'not-allowed', whiteSpace: 'nowrap' as const },
-  input: { flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,.12)', background: '#111827', color: '#e2e8f5', fontFamily: "'Inter',sans-serif", fontSize: 13, outline: 'none' },
-  emptyState: { fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: '#5c6a8a', padding: '24px 0', textAlign: 'center' as const },
-  errorBanner: { background: 'rgba(239,74,99,.1)', border: '1px solid rgba(239,74,99,.35)', borderRadius: 8, padding: '10px 14px', color: '#ef4a63', fontFamily: "'JetBrains Mono',monospace", fontSize: 11.5, marginBottom: 12 },
-  friendAvatar: { width: 30, height: 30, borderRadius: '50%', background: '#1a2040', backgroundSize: 'cover', backgroundPosition: 'center', flex: 'none' as const },
-  infoText: { marginTop: 8, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#12c8a8' },
-} as const;
+const Page = styled.div`
+  min-height: 100dvh;
+  background: #05070c;
+  display: flex;
+  font-family: 'Inter', sans-serif;
+`;
 
-const CS = {
-  panel: { borderTop: '1px solid rgba(255,255,255,.07)', display: 'flex', flexDirection: 'column' as const, flex: 'none' as const, userSelect: 'none' as const },
-  dragHandle: { display: 'flex', justifyContent: 'center', padding: '4px 0', cursor: 'ns-resize' },
-  dragBar: { width: 36, height: 3, borderRadius: 2, background: 'rgba(255,255,255,.12)' },
-  header: { padding: '4px 0 6px', display: 'flex', alignItems: 'center' },
-  headerLabel: { fontFamily: "'JetBrains Mono',monospace", fontSize: 9.5, letterSpacing: '.14em', color: '#3a4256' },
-  messages: { flex: 1, overflowY: 'auto' as const, display: 'flex', flexDirection: 'column' as const, gap: 5 },
-  empty: { fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: '#3a4256', textAlign: 'center' as const, paddingTop: 12 },
-  nick: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 13, whiteSpace: 'nowrap' as const, flex: 'none' as const },
-  text: { fontFamily: "'Inter',sans-serif", fontSize: 13, color: '#c7cede', wordBreak: 'break-word' as const, flex: 1 },
-  time: { fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: '#2a3246', whiteSpace: 'nowrap' as const, flex: 'none' as const },
-  inputRow: { display: 'flex', gap: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,.05)', marginTop: 4 },
-  input: { flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,.1)', background: 'rgba(255,255,255,.04)', color: '#e2e8f5', fontFamily: "'Inter',sans-serif", fontSize: 13, outline: 'none' },
-  sendBtn: { padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(18,200,168,.4)', background: 'rgba(18,200,168,.08)', color: '#12c8a8', fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 13, cursor: 'pointer' },
-} as const;
+const Sidebar = styled.nav`
+  width: 220px;
+  min-height: 100dvh;
+  background: #0a0e1a;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 14px;
+  gap: 4px;
+  flex: none;
+`;
+
+const Logo = styled.a`
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  color: #12c8a8;
+  margin-bottom: 16px;
+  text-decoration: none;
+  cursor: pointer;
+`;
+
+const UserChip = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 14px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+`;
+
+const Avatar = styled.div`
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #1a2040;
+  background-size: cover;
+  background-position: center;
+  flex: none;
+`;
+
+const UserName = styled.div`
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: #e2e8f5;
+`;
+
+const UserOnline = styled.div`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #12c8a8;
+  margin-top: 1px;
+`;
+
+const ProfileDropdown = styled.div`
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: #0d1220;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 50;
+`;
+
+const DropdownItem = styled(Link)`
+  display: block;
+  padding: 10px 14px;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: #c7cede;
+  text-decoration: none;
+`;
+
+const DropdownDivider = styled.div`
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+`;
+
+const DropdownDangerItem = styled.button`
+  display: block;
+  padding: 10px 14px;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: #ef4a63;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+`;
+
+const NavList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+`;
+
+const NavBtn = styled.button<{ $active: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #5c6a8a;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  ${p => (p.$active ? 'background: rgba(18,200,168,.1); color: #12c8a8; border: 1px solid rgba(18,200,168,.25);' : '')}
+`;
+
+const SidebarFooter = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px 4px;
+  flex-wrap: wrap;
+`;
+
+const FooterLink = styled(Link)`
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  color: #3a4460;
+  text-decoration: none;
+  line-height: 1.4;
+`;
+
+const FooterDot = styled.span`
+  font-size: 10px;
+  color: #2a3250;
+`;
+
+const Main = styled.main`
+  flex: 1;
+  padding: 28px 24px 20px;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+  min-width: 0;
+`;
+
+const SectionHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+  gap: 10px;
+`;
+
+const SectionTitle = styled.div`
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  color: #e2e8f5;
+  margin-bottom: 4px;
+`;
+
+const SectionSub = styled.div`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  color: #5c6a8a;
+`;
+
+const Card = styled.div`
+  background: #0d1220;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 14px 16px;
+`;
+
+const CardTitle = styled.div`
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: #c7cede;
+`;
+
+const CardSub = styled.div`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  color: #5c6a8a;
+  margin-top: 3px;
+`;
+
+const PrimaryBtn = styled.button`
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(18, 200, 168, 0.5);
+  background: rgba(18, 200, 168, 0.1);
+  color: #12c8a8;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+`;
+
+const PrimaryBtnSm = styled.button`
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(18, 200, 168, 0.5);
+  background: rgba(18, 200, 168, 0.1);
+  color: #12c8a8;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+`;
+
+const DangerBtnSm = styled.button`
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(239, 74, 99, 0.35);
+  background: rgba(239, 74, 99, 0.06);
+  color: #ef4a63;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+`;
+
+const GhostBtn = styled.button`
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: #8a93a8;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+`;
+
+const DisabledBtn = styled.button`
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: #3a4256;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: not-allowed;
+  white-space: nowrap;
+`;
+
+const Input = styled.input`
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #111827;
+  color: #e2e8f5;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  outline: none;
+`;
+
+const EmptyState = styled.div`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #5c6a8a;
+  padding: 24px 0;
+  text-align: center;
+`;
+
+const ErrorBanner = styled.div`
+  background: rgba(239, 74, 99, 0.1);
+  border: 1px solid rgba(239, 74, 99, 0.35);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #ef4a63;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  margin-bottom: 12px;
+`;
+
+const FriendAvatar = styled.div`
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #1a2040;
+  background-size: cover;
+  background-position: center;
+  flex: none;
+`;
+
+const InfoText = styled.div`
+  margin-top: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #12c8a8;
+`;
+
+// ── Global chat styles ───────────────────────────────────────────────────────
+const ChatPanelWrapper = styled.div`
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  user-select: none;
+`;
+
+const DragHandle = styled.div`
+  display: flex;
+  justify-content: center;
+  padding: 4px 0;
+  cursor: ns-resize;
+`;
+
+const DragBar = styled.div`
+  width: 36px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+`;
+
+const ChatHeader = styled.div`
+  padding: 4px 0 6px;
+  display: flex;
+  align-items: center;
+`;
+
+const ChatHeaderLabel = styled.span`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  color: #3a4256;
+`;
+
+const ChatMessages = styled.div`
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+`;
+
+const ChatEmpty = styled.div`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #3a4256;
+  text-align: center;
+  padding-top: 12px;
+`;
+
+const ChatNick = styled.span`
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  white-space: nowrap;
+  flex: none;
+`;
+
+const ChatText = styled.span`
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: #c7cede;
+  word-break: break-word;
+  flex: 1;
+`;
+
+const ChatTime = styled.span`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #2a3246;
+  white-space: nowrap;
+  flex: none;
+`;
+
+const ChatInputRow = styled.div`
+  display: flex;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  margin-top: 4px;
+`;
+
+const ChatInput = styled.input`
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e2e8f5;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  outline: none;
+`;
+
+const ChatSendBtn = styled.button`
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(18, 200, 168, 0.4);
+  background: rgba(18, 200, 168, 0.08);
+  color: #12c8a8;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+`;

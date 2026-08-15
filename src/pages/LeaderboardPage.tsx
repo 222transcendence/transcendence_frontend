@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import styled from 'styled-components';
 import { fetchLeaderboard } from '../api/gameStats';
 import type { LeaderboardEntry } from '../types/gameStats';
 import PageLayout from '../components/PageLayout';
@@ -13,15 +14,15 @@ const RANK_META = [
 function RankBadge({ rank }: { rank: number }) {
   if (rank < 3) {
     return (
-      <div style={{ ...S.rankBox, fontSize: 20, lineHeight: 1 }}>
+      <RankBox style={{ fontSize: 20, lineHeight: 1 }}>
         {RANK_META[rank].medal}
-      </div>
+      </RankBox>
     );
   }
   return (
-    <div style={S.rankBox}>
-      <span style={S.rankNum}>#{rank + 1}</span>
-    </div>
+    <RankBox>
+      <RankNum>#{rank + 1}</RankNum>
+    </RankBox>
   );
 }
 
@@ -38,62 +39,60 @@ export default function LeaderboardPage() {
   }, []);
 
   if (isLoading) {
-    return <PageLayout title="리더보드"><div style={S.empty}>불러오는 중…</div></PageLayout>;
+    return <PageLayout title="리더보드"><Empty>불러오는 중…</Empty></PageLayout>;
   }
 
   if (error) {
-    return <PageLayout title="리더보드"><div style={S.errorBox}>{error}</div></PageLayout>;
+    return <PageLayout title="리더보드"><ErrorBox>{error}</ErrorBox></PageLayout>;
   }
 
   return (
     <PageLayout title="🏆 리더보드">
       {entries.length === 0 ? (
-        <div style={S.empty}>아직 랭킹 데이터가 없습니다.<br /><span style={{ fontSize: 10, opacity: .5 }}>게임을 완료하면 순위가 등록됩니다.</span></div>
+        <Empty>아직 랭킹 데이터가 없습니다.<br /><span style={{ fontSize: 10, opacity: .5 }}>게임을 완료하면 순위가 등록됩니다.</span></Empty>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {entries.map((entry, i) => {
             const winPct = Math.round(entry.winRate * 100);
             const meta = RANK_META[i];
             return (
-              <div
+              <Row
                 key={entry.id}
                 style={{
-                  ...S.row,
                   borderColor: meta?.borderColor ?? 'rgba(255,255,255,.06)',
                   background: meta?.bg ?? 'rgba(255,255,255,.015)',
                   boxShadow: i === 0 ? `0 0 18px rgba(255,215,0,.06)` : undefined,
                 }}
               >
                 <RankBadge rank={i} />
-                <div
+                <AvatarCircle
                   style={{
-                    ...S.avatarCircle,
                     backgroundImage: entry.avatar ? `url(${entry.avatar})` : 'none',
                     borderColor: meta?.glowColor ?? 'rgba(255,255,255,.1)',
                   }}
                 >
                   {!entry.avatar && (
-                    <span style={S.avatarInitial}>{entry.nickname[0].toUpperCase()}</span>
+                    <AvatarInitial>{entry.nickname[0].toUpperCase()}</AvatarInitial>
                   )}
-                </div>
+                </AvatarCircle>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <Link to={`/stats/${entry.id}`} style={S.nickname}>{entry.nickname}</Link>
-                  <div style={S.winRateRow}>
-                    <div style={S.winRateBar}>
-                      <div style={{ ...S.winRateFill, width: `${winPct}%` }} />
-                    </div>
-                    <span style={S.pct}>{winPct}%</span>
-                  </div>
+                  <Nickname to={`/stats/${entry.id}`}>{entry.nickname}</Nickname>
+                  <WinRateRow>
+                    <WinRateBar>
+                      <WinRateFill style={{ width: `${winPct}%` }} />
+                    </WinRateBar>
+                    <Pct>{winPct}%</Pct>
+                  </WinRateRow>
                 </div>
-                <div style={S.wlCol}>
-                  <span style={S.wLabel}>승</span>
-                  <span style={{ ...S.wNum, color: '#12c8a8' }}>{entry.wins}</span>
-                </div>
-                <div style={S.wlCol}>
-                  <span style={S.wLabel}>패</span>
-                  <span style={{ ...S.wNum, color: '#ef4a63' }}>{entry.losses}</span>
-                </div>
-              </div>
+                <WlCol>
+                  <WLabel>승</WLabel>
+                  <WNum style={{ color: '#12c8a8' }}>{entry.wins}</WNum>
+                </WlCol>
+                <WlCol>
+                  <WLabel>패</WLabel>
+                  <WNum style={{ color: '#ef4a63' }}>{entry.losses}</WNum>
+                </WlCol>
+              </Row>
             );
           })}
         </div>
@@ -102,20 +101,126 @@ export default function LeaderboardPage() {
   );
 }
 
-const S = {
-  errorBox: { background: 'rgba(239,74,99,.1)', border: '1px solid rgba(239,74,99,.3)', borderRadius: 10, padding: '10px 14px', color: '#ef4a63', fontFamily: "'JetBrains Mono',monospace", fontSize: 12 },
-  empty: { fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: '#5c6a8a', padding: '32px 0', textAlign: 'center' as const, lineHeight: 2 },
-  row: { display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 12, border: '1px solid', transition: 'background .15s' },
-  rankBox: { width: 36, textAlign: 'center' as const, flex: 'none' as const },
-  rankNum: { fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: '#3a4a6a', fontWeight: 700 as const },
-  avatarCircle: { width: 36, height: 36, borderRadius: '50%', backgroundSize: 'cover', backgroundPosition: 'center', flex: 'none' as const, border: '1.5px solid', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#111827' },
-  avatarInitial: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 15, color: '#5c6a8a' },
-  nickname: { display: 'block', color: '#c7cede', textDecoration: 'none', fontWeight: 600 as const, fontSize: 14, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const },
-  winRateRow: { display: 'flex', alignItems: 'center', gap: 8 },
-  winRateBar: { flex: 1, height: 4, borderRadius: 2, background: '#182236', overflow: 'hidden', maxWidth: 120 },
-  winRateFill: { height: '100%', background: 'linear-gradient(90deg,#8b5cf6,#12c8a8)', borderRadius: 2 },
-  pct: { fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: '#5c6a8a', minWidth: 32 },
-  wlCol: { display: 'flex', flexDirection: 'column' as const, alignItems: 'center', minWidth: 28, gap: 1 },
-  wLabel: { fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: '#3a4a6a', letterSpacing: '.05em' },
-  wNum: { fontFamily: "'JetBrains Mono',monospace", fontSize: 14, fontWeight: 700 as const },
-} as const;
+const ErrorBox = styled.div`
+  background: rgba(239, 74, 99, 0.1);
+  border: 1px solid rgba(239, 74, 99, 0.3);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: #ef4a63;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+`;
+
+const Empty = styled.div`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #5c6a8a;
+  padding: 32px 0;
+  text-align: center;
+  line-height: 2;
+`;
+
+const Row = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid;
+  transition: background 0.15s;
+`;
+
+const RankBox = styled.div`
+  width: 36px;
+  text-align: center;
+  flex: none;
+`;
+
+const RankNum = styled.span`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #3a4a6a;
+  font-weight: 700;
+`;
+
+const AvatarCircle = styled.div`
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-size: cover;
+  background-position: center;
+  flex: none;
+  border: 1.5px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #111827;
+`;
+
+const AvatarInitial = styled.span`
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: #5c6a8a;
+`;
+
+const Nickname = styled(Link)`
+  display: block;
+  color: #c7cede;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const WinRateRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const WinRateBar = styled.div`
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: #182236;
+  overflow: hidden;
+  max-width: 120px;
+`;
+
+const WinRateFill = styled.div`
+  height: 100%;
+  background: linear-gradient(90deg, #8b5cf6, #12c8a8);
+  border-radius: 2px;
+`;
+
+const Pct = styled.span`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #5c6a8a;
+  min-width: 32px;
+`;
+
+const WlCol = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 28px;
+  gap: 1px;
+`;
+
+const WLabel = styled.span`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #3a4a6a;
+  letter-spacing: 0.05em;
+`;
+
+const WNum = styled.span`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 700;
+`;

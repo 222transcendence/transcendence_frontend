@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import styled from 'styled-components';
 import { fetchUserStats, fetchUserMatches } from '../api/gameStats';
 import { fetchMyProfile, fetchUserProfile } from '../api/client';
 import type { UserStats, MatchHistoryItem, MatchHistoryResponse } from '../types/gameStats';
@@ -58,9 +59,9 @@ export default function StatsPage() {
 
   if (isLoading) {
     return (
-      <div style={{ minHeight: '100dvh', background: '#05070c', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: '#5c6a8a' }}>불러오는 중…</span>
-      </div>
+      <LoadingPage>
+        <LoadingText>불러오는 중…</LoadingText>
+      </LoadingPage>
     );
   }
 
@@ -69,43 +70,43 @@ export default function StatsPage() {
   return (
     <PageLayout title={`${nickname}의 전적`} actions={<NavLink to="/leaderboard">리더보드 →</NavLink>}>
       {/* Profile */}
-      <div style={S.profileRow}>
-        <div style={{ ...S.avatar, backgroundImage: avatar ? `url(${avatar})` : 'none', backgroundColor: '#1a2040' }} />
+      <ProfileRow>
+        <Avatar style={{ backgroundImage: avatar ? `url(${avatar})` : 'none', backgroundColor: '#1a2040' }} />
         <div>
-          <div style={S.profileName}>{nickname}</div>
+          <ProfileName>{nickname}</ProfileName>
           {stats && (
-            <div style={S.winRateRow}>
-              <div style={S.winRateTrack}>
-                <div style={{ ...S.winRateFill, width: `${winPct}%` }} />
-              </div>
-              <span style={S.winRatePct}>{winPct}% 승률</span>
-            </div>
+            <WinRateRow>
+              <WinRateTrack>
+                <WinRateFill style={{ width: `${winPct}%` }} />
+              </WinRateTrack>
+              <WinRatePct>{winPct}% 승률</WinRatePct>
+            </WinRateRow>
           )}
         </div>
-      </div>
+      </ProfileRow>
 
       {/* Stat cards */}
       {stats && (
-        <div style={S.statGrid}>
+        <StatGrid>
           {[
             { label: '승리', value: stats.wins, color: '#12c8a8' },
             { label: '패배', value: stats.losses, color: '#ef4a63' },
             { label: '총 게임', value: stats.totalGames, color: '#8b5cf6' },
             { label: '승률', value: `${winPct}%`, color: '#eab308' },
           ].map(item => (
-            <div key={item.label} style={S.statCard}>
-              <div style={S.statLabel}>{item.label}</div>
-              <div style={{ ...S.statValue, color: item.color }}>{item.value}</div>
-            </div>
+            <StatCard key={item.label}>
+              <StatLabel>{item.label}</StatLabel>
+              <StatValue style={{ color: item.color }}>{item.value}</StatValue>
+            </StatCard>
           ))}
-        </div>
+        </StatGrid>
       )}
 
       {/* Match history */}
       <div style={{ marginTop: 28 }}>
-        <div style={S.sectionTitle}>전적 기록</div>
+        <SectionTitle>전적 기록</SectionTitle>
         {history.length === 0 ? (
-          <div style={S.empty}>전적 기록이 없습니다.</div>
+          <Empty>전적 기록이 없습니다.</Empty>
         ) : (
           <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -129,17 +130,17 @@ export default function StatsPage() {
                       ? { background: 'rgba(239,74,99,.12)', color: '#ef4a63' }
                       : { background: 'rgba(139,92,246,.12)', color: '#8b5cf6' };
                 return (
-                  <div key={m.id} style={{ ...S.matchRow, borderColor: won ? 'rgba(18,200,168,.15)' : 'rgba(239,74,99,.12)' }}>
-                    <span style={{ ...S.matchBadge, ...resultStyle }}>
+                  <MatchRow key={m.id} style={{ borderColor: won ? 'rgba(18,200,168,.15)' : 'rgba(239,74,99,.12)' }}>
+                    <MatchBadge style={resultStyle}>
                       {result}
-                    </span>
+                    </MatchBadge>
                     <span style={{ flex: 1, fontSize: 13, color: '#c7cede' }}>
                       vs{' '}
                       {opponents.length > 0 ? (
                         opponents.map((opponent, index) => (
                           <span key={opponent.id}>
                             {index > 0 && ', '}
-                            <Link to={`/stats/${opponent.id}`} style={{ color: '#12c8a8', textDecoration: 'none' }}>{opponent.nickname}</Link>
+                            <OpponentLink to={`/stats/${opponent.id}`}>{opponent.nickname}</OpponentLink>
                           </span>
                         ))
                       ) : (
@@ -149,14 +150,14 @@ export default function StatsPage() {
                     <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: '#3a4256' }}>
                       {new Date(m.createdAt).toLocaleDateString('ko-KR')}
                     </span>
-                  </div>
+                  </MatchRow>
                 );
               })}
             </div>
             {history.length < total && (
-              <button onClick={loadMore} disabled={isLoadingMore} style={{ ...S.loadMoreBtn, marginTop: 12 }}>
+              <LoadMoreBtn onClick={loadMore} disabled={isLoadingMore} style={{ marginTop: 12 }}>
                 {isLoadingMore ? '불러오는 중…' : `더 보기 (${total - history.length}개 남음)`}
-              </button>
+              </LoadMoreBtn>
             )}
           </>
         )}
@@ -165,21 +166,149 @@ export default function StatsPage() {
   );
 }
 
-const S = {
-  profileRow: { display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 },
-  avatar: { width: 56, height: 56, borderRadius: '50%', border: '2px solid rgba(18,200,168,.4)', backgroundSize: 'cover', backgroundPosition: 'center', flex: 'none' as const },
-  profileName: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 20, color: '#e2e8f5', marginBottom: 8 },
-  winRateRow: { display: 'flex', alignItems: 'center', gap: 10 },
-  winRateTrack: { width: 140, height: 6, borderRadius: 3, background: '#182236', overflow: 'hidden' },
-  winRateFill: { height: '100%', background: 'linear-gradient(90deg,#8b5cf6,#12c8a8)', borderRadius: 3, transition: 'width .5s' },
-  winRatePct: { fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#8a93a8' },
-  statGrid: { display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 },
-  statCard: { background: '#0d1220', border: '1px solid rgba(255,255,255,.07)', borderRadius: 12, padding: '16px 12px', textAlign: 'center' as const },
-  statLabel: { fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: '#5c6a8a', letterSpacing: '.1em', marginBottom: 8 },
-  statValue: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 30 },
-  sectionTitle: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 16, color: '#c7cede', marginBottom: 12 },
-  matchRow: { display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 10, background: 'rgba(255,255,255,.02)', border: '1px solid' },
-  matchBadge: { fontFamily: "'JetBrains Mono',monospace", fontWeight: 700 as const, fontSize: 10, letterSpacing: '.08em', padding: '3px 8px', borderRadius: 5, minWidth: 44, textAlign: 'center' as const },
-  empty: { fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: '#5c6a8a', padding: '20px 0' },
-  loadMoreBtn: { width: '100%', padding: '10px 0', borderRadius: 8, border: '1px solid rgba(255,255,255,.1)', background: 'transparent', color: '#8a93a8', fontFamily: "'Inter',sans-serif", fontSize: 13, cursor: 'pointer' },
-} as const;
+const LoadingPage = styled.div`
+  min-height: 100dvh;
+  background: #05070c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const LoadingText = styled.span`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #5c6a8a;
+`;
+
+const ProfileRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+`;
+
+const Avatar = styled.div`
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 2px solid rgba(18, 200, 168, 0.4);
+  background-size: cover;
+  background-position: center;
+  flex: none;
+`;
+
+const ProfileName = styled.div`
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  color: #e2e8f5;
+  margin-bottom: 8px;
+`;
+
+const WinRateRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+`;
+
+const WinRateTrack = styled.div`
+  width: 140px;
+  height: 6px;
+  border-radius: 3px;
+  background: #182236;
+  overflow: hidden;
+`;
+
+const WinRateFill = styled.div`
+  height: 100%;
+  background: linear-gradient(90deg, #8b5cf6, #12c8a8);
+  border-radius: 3px;
+  transition: width 0.5s;
+`;
+
+const WinRatePct = styled.span`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #8a93a8;
+`;
+
+const StatGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+`;
+
+const StatCard = styled.div`
+  background: #0d1220;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 16px 12px;
+  text-align: center;
+`;
+
+const StatLabel = styled.div`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #5c6a8a;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+`;
+
+const StatValue = styled.div`
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 30px;
+`;
+
+const SectionTitle = styled.div`
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: #c7cede;
+  margin-bottom: 12px;
+`;
+
+const MatchRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid;
+`;
+
+const MatchBadge = styled.span`
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+  border-radius: 5px;
+  min-width: 44px;
+  text-align: center;
+`;
+
+const OpponentLink = styled(Link)`
+  color: #12c8a8;
+  text-decoration: none;
+`;
+
+const Empty = styled.div`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #5c6a8a;
+  padding: 20px 0;
+`;
+
+const LoadMoreBtn = styled.button`
+  width: 100%;
+  padding: 10px 0;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: #8a93a8;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+`;

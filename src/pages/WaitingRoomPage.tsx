@@ -346,7 +346,7 @@ export default function WaitingRoomPage() {
 }
 
 const S = {
-  page: { minHeight: '100vh', background: 'radial-gradient(ellipse 1000px 600px at 50% -5%, #0e1a24 0%, #05070c 60%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter',sans-serif", padding: 20 },
+  page: { minHeight: '100dvh', background: 'radial-gradient(ellipse 1000px 600px at 50% -5%, #0e1a24 0%, #05070c 60%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter',sans-serif", padding: 20 },
   outerLayout: { width: '100%', maxWidth: 980, display: 'flex', gap: 20, alignItems: 'flex-start' },
   layout: { flex: 1, minWidth: 0 },
   chatColumn: { width: 240, flex: 'none' as const, height: 480, alignSelf: 'flex-start' as const },

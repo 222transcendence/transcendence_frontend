@@ -112,7 +112,7 @@ export default function LoginPage() {
 
 const S = {
   page: {
-    minHeight: '100vh',
+    minHeight: '100dvh',
     background: 'radial-gradient(ellipse 900px 600px at 50% -10%, #0e1a24 0%, #05070c 60%)',
     display: 'flex',
     alignItems: 'center',

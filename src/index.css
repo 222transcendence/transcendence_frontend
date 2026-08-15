@@ -10,13 +10,13 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   background: #05070c;
   color: #e2e8f5;
-  min-height: 100vh;
+  min-height: 100dvh;
   overflow-x: hidden;
 }
 
 #root {
   width: 100%;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* Scrollbar */
@@ -27,7 +27,7 @@ body {
 
 /* Static pages (Privacy Policy, Terms of Service) */
 .static-page-container {
-  min-height: 100vh;
+  min-height: 100dvh;
   padding: 40px 20px;
   display: flex;
   justify-content: center;

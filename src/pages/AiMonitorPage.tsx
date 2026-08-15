@@ -215,7 +215,7 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
 }
 
 const styles = {
-  page: { minHeight: '100vh', boxSizing: 'border-box' as const, padding: 28, background: '#080b14', color: '#e2e8f5', fontFamily: "'JetBrains Mono', monospace" },
+  page: { minHeight: '100dvh', boxSizing: 'border-box' as const, padding: 28, background: '#080b14', color: '#e2e8f5', fontFamily: "'JetBrains Mono', monospace" },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', maxWidth: 1200, margin: '0 auto 18px' },
   kicker: { color: '#b47cff', fontSize: 11, letterSpacing: '.14em' },
   title: { margin: '6px 0', fontFamily: "'Rajdhani', sans-serif", fontSize: 36 },

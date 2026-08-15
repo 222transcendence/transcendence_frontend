@@ -698,8 +698,8 @@ const NAV_LABEL: Record<Tab, string> = { lobby: '로비', friends: '친구', lea
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const S = {
-  page: { minHeight: '100vh', background: '#05070c', display: 'flex', fontFamily: "'Inter',sans-serif" },
-  sidebar: { width: 220, minHeight: '100vh', background: '#0a0e1a', borderRight: '1px solid rgba(255,255,255,.06)', display: 'flex', flexDirection: 'column' as const, padding: '20px 14px', gap: 4, flex: 'none' as const },
+  page: { minHeight: '100dvh', background: '#05070c', display: 'flex', fontFamily: "'Inter',sans-serif" },
+  sidebar: { width: 220, minHeight: '100dvh', background: '#0a0e1a', borderRight: '1px solid rgba(255,255,255,.06)', display: 'flex', flexDirection: 'column' as const, padding: '20px 14px', gap: 4, flex: 'none' as const },
   logo: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 13, letterSpacing: '.2em', color: '#12c8a8', marginBottom: 16 },
   userChip: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px', borderRadius: 10, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.06)', marginBottom: 14, cursor: 'pointer', width: '100%', textAlign: 'left' as const },
   avatar: { width: 34, height: 34, borderRadius: '50%', background: '#1a2040', backgroundSize: 'cover', backgroundPosition: 'center', flex: 'none' as const },
@@ -715,7 +715,7 @@ const S = {
   footerLink: { fontFamily: "'Inter',sans-serif", fontSize: 11, color: '#3a4460', textDecoration: 'none', lineHeight: 1.4 },
   footerDot: { fontSize: 10, color: '#2a3250' },
   navBtnActive: { background: 'rgba(18,200,168,.1)', color: '#12c8a8', border: '1px solid rgba(18,200,168,.25)' },
-  main: { flex: 1, padding: '28px 24px 20px', display: 'flex', flexDirection: 'column' as const, height: '100vh', overflow: 'hidden', minWidth: 0 },
+  main: { flex: 1, padding: '28px 24px 20px', display: 'flex', flexDirection: 'column' as const, height: '100dvh', overflow: 'hidden', minWidth: 0 },
   sectionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 18, flexWrap: 'wrap' as const, gap: 10 },
   sectionTitle: { fontFamily: "'Rajdhani',sans-serif", fontWeight: 700 as const, fontSize: 22, color: '#e2e8f5', marginBottom: 4 },
   sectionSub: { fontFamily: "'JetBrains Mono',monospace", fontSize: 10.5, color: '#5c6a8a' },

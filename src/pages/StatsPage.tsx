@@ -58,7 +58,7 @@ export default function StatsPage() {
 
   if (isLoading) {
     return (
-      <div style={{ minHeight: '100vh', background: '#05070c', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ minHeight: '100dvh', background: '#05070c', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: '#5c6a8a' }}>불러오는 중…</span>
       </div>
     );

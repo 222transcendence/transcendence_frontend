@@ -16,6 +16,8 @@ import {
 } from '../api/client';
 import type { Room, AiDifficulty } from '../types/lobby';
 import type { Friend } from '../types/friend';
+import { useAiMonitorSetting } from '../hooks/useAiMonitorSetting';
+import { closePendingAiMonitorPopup, prepareAiMonitorPopup, promoteAiMonitorPopup } from '../lib/aiMonitorPopup';
 
 type Tab = 'lobby' | 'friends' | 'leaderboard';
 
@@ -259,6 +261,7 @@ export default function LobbyPage() {
           onClose={() => setShowAiModal(false)}
           socket={socketRef.current}
           navigate={navigate}
+          userId={myUserId || null}
         />
       )}
     </Page>
@@ -521,14 +524,25 @@ function AiDifficultyModal({
   onClose,
   socket,
   navigate,
+  userId,
 }: {
   onClose: () => void;
   socket: import('../api/lobbySocket').LobbySocket | null;
   navigate: ReturnType<typeof useNavigate>;
+  userId: string | null;
 }) {
   const [difficulty, setDifficulty] = useState<AiDifficulty>('NORMAL');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const { enabled: monitorEnabled, setEnabled: setMonitorEnabled, userIdReady } = useAiMonitorSetting(userId);
+  const activeAttemptRef = useRef<(() => void) | null>(null);
+  const attemptRef = useRef(0);
+
+  useEffect(() => () => {
+    attemptRef.current += 1;
+    activeAttemptRef.current?.();
+    activeAttemptRef.current = null;
+  }, []);
 
   const handleStart = () => {
     if (!socket || loading) return;
@@ -536,25 +550,57 @@ function AiDifficultyModal({
     setError('');
 
     const requestId = crypto.randomUUID();
+    const attempt = ++attemptRef.current;
+    const pendingToken = `${attempt}:${requestId}`;
+    if (monitorEnabled) {
+      try { prepareAiMonitorPopup(pendingToken); } catch { /* popup failure must not block AI creation */ }
+    }
 
-    const unsubCreated = socket.on('AI_PRACTICE_CREATED', (payload) => {
+    let active = true;
+    let cleaned = false;
+    let unsubCreated: () => void = () => {};
+    let unsubRejected: () => void = () => {};
+    let ownedCleanup: () => void = () => {};
+    const cleanup = (closePending: boolean) => {
+      if (cleaned) return;
+      cleaned = true;
+      active = false;
       unsubCreated();
       unsubRejected();
+      if (closePending && monitorEnabled) closePendingAiMonitorPopup(pendingToken);
+      if (activeAttemptRef.current === ownedCleanup) activeAttemptRef.current = null;
+    };
+    activeAttemptRef.current?.();
+    ownedCleanup = () => cleanup(true);
+    activeAttemptRef.current = ownedCleanup;
+
+    const createdUnsubscribe = socket.on('AI_PRACTICE_CREATED', (payload) => {
+      if (!active || attempt !== attemptRef.current) return;
+      cleanup(false);
+      if (monitorEnabled) {
+        try { promoteAiMonitorPopup(pendingToken, payload.roomId); } catch {
+          closePendingAiMonitorPopup(pendingToken);
+        }
+      }
       navigate(`/game/${payload.roomId}`);
     });
+    unsubCreated = createdUnsubscribe;
+    if (cleaned) unsubCreated();
 
-    const unsubRejected = socket.on('AI_PRACTICE_REJECTED', (payload) => {
-      unsubCreated();
-      unsubRejected();
+    const rejectedUnsubscribe = socket.on('AI_PRACTICE_REJECTED', (payload) => {
+      if (!active || attempt !== attemptRef.current) return;
+      cleanup(true);
       setLoading(false);
       setError(payload.message || 'AI 대전 세션 생성에 실패했습니다.');
     });
+    unsubRejected = rejectedUnsubscribe;
+    if (cleaned) unsubRejected();
 
     socket.send('CREATE_AI_PRACTICE', { requestId, difficulty });
   };
 
   return (
-    <AiBackdrop onClick={onClose}>
+    <AiBackdrop onClick={() => { if (!loading) onClose(); }}>
       <AiModal onClick={e => e.stopPropagation()}>
         <AiTitle>AI 실력 선택</AiTitle>
         <AiSubtitle>게임 규칙과 시간별 난이도 상승은 온라인 대전과 동일합니다.</AiSubtitle>
@@ -582,6 +628,23 @@ function AiDifficultyModal({
         </AiCardRow>
 
         <AiNotice>AI 대전 결과는 PvP 랭킹에 반영되지 않습니다.</AiNotice>
+
+        <MonitorSetting>
+          <MonitorSettingLabel htmlFor="ai-monitor-enabled">
+            <MonitorCheckbox
+              id="ai-monitor-enabled"
+              type="checkbox"
+              checked={monitorEnabled}
+              disabled={!userIdReady || loading}
+              onChange={event => setMonitorEnabled(event.target.checked)}
+              aria-describedby="ai-monitor-setting-help"
+            />
+            <span>AI Monitor 자동으로 열기</span>
+          </MonitorSettingLabel>
+          <MonitorSettingHelp id="ai-monitor-setting-help">
+            {!userIdReady ? '사용자 정보를 불러오는 중입니다.' : '이 설정은 다음 AI 대전에도 유지됩니다.'}
+          </MonitorSettingHelp>
+        </MonitorSetting>
 
         {error && <AiErrorMsg>{error}</AiErrorMsg>}
 
@@ -687,6 +750,48 @@ const AiNotice = styled.div`
   color: #5c6a8a;
   text-align: center;
   margin-bottom: 14px;
+`;
+
+const MonitorSetting = styled.div`
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+`;
+
+const MonitorSettingLabel = styled.label`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #e2e8f5;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+`;
+
+const MonitorCheckbox = styled.input`
+  width: 16px;
+  height: 16px;
+  accent-color: #12c8a8;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid #12c8a8;
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+  }
+`;
+
+const MonitorSettingHelp = styled.div`
+  margin: 6px 0 0 24px;
+  color: #8a93a8;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  line-height: 1.4;
 `;
 
 const AiErrorMsg = styled.div`

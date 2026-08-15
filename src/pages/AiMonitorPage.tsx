@@ -14,11 +14,49 @@ function sameLifecycle(left: MonitorIdentity, right: MonitorIdentity): boolean {
 }
 
 function value(value: unknown): string {
-  return value === null || value === undefined ? 'Not available' : String(value);
+  return value === null || value === undefined ? '정보 없음' : String(value);
 }
 
 function percent(valueToFormat: number | null | undefined): string {
-  return valueToFormat === null || valueToFormat === undefined ? 'Not available' : `${(valueToFormat * 100).toFixed(1)}%`;
+  return valueToFormat === null || valueToFormat === undefined ? '정보 없음' : `${(valueToFormat * 100).toFixed(1)}%`;
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  DEFAULT: '기본값 (DEFAULT)',
+  BLENDED: '혼합형 (BLENDED)',
+  PERSONALIZED: '개인화 (PERSONALIZED)',
+};
+
+const FALLBACK_LABELS: Record<string, string> = {
+  NO_USER: '사용자 정보 없음 (NO_USER)',
+  NO_PERSONAL_SAMPLES: '개인 표본 없음 (NO_PERSONAL_SAMPLES)',
+  PROFILE_SOURCE_ERROR: '프로필 출처 오류 (PROFILE_SOURCE_ERROR)',
+};
+
+const ACTION_LABELS: Record<string, string> = {
+  KEEP: '유지 (KEEP)',
+  SWITCH: '전환 (SWITCH)',
+  ABANDON: '포기 (ABANDON)',
+  SELECT: '선택 (SELECT)',
+  NO_TARGET: '목표 없음 (NO_TARGET)',
+};
+
+const PHASE_LABELS: Record<string, string> = {
+  IDLE: '대기 (IDLE)',
+  REACTION: '반응 (REACTION)',
+  TYPING: '입력 중 (TYPING)',
+  CORRECTING: '수정 중 (CORRECTING)',
+};
+
+const DIFFICULTY_LABELS: Record<string, string> = {
+  BEGINNER: '초급 (BEGINNER)',
+  NORMAL: '보통 (NORMAL)',
+  HARD: '어려움 (HARD)',
+};
+
+function enumLabel(raw: unknown, labels: Record<string, string>): string {
+  if (raw === null || raw === undefined) return '정보 없음';
+  return labels[String(raw)] ?? String(raw);
 }
 
 function metricMetadata(
@@ -29,14 +67,15 @@ function metricMetadata(
 }
 
 function metricAvailability(metadata: AiMonitorMetricMetadata | null): string {
-  if (!metadata) return 'Not available';
-  return metadata.available ? 'Available' : 'Missing';
+  if (!metadata) return '정보 없음';
+  return metadata.available ? '사용 가능' : '데이터 없음';
 }
 
 function fallbackLabel(
   fallback: AiMonitorSnapshot['profile']['fallbackReason'],
 ): string {
-  return !fallback || fallback === 'NONE' ? 'Not available' : fallback;
+  if (!fallback || fallback === 'NONE') return '정보 없음';
+  return FALLBACK_LABELS[fallback] ?? String(fallback);
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -133,54 +172,54 @@ export default function AiMonitorPage() {
   return (
     <main style={styles.page}>
       <header style={styles.header}>
-        <div><div style={styles.kicker}>AI OBSERVABILITY</div><h1 style={styles.title}>AI Monitor</h1><div style={styles.status}>{status}</div></div>
+        <div><div style={styles.kicker}>AI 모니터링</div><h1 style={styles.title}>AI 모니터 (AI Monitor)</h1><div style={styles.status}>{status}</div></div>
         <button type="button" onClick={close} style={styles.close}>닫기</button>
       </header>
-      <div style={styles.identity}>room: {value(normalizedRoomId)} · lifecycle: {identity ? `${identity.matchEpoch.slice(0, 8)} / ${identity.bridgeSessionId.slice(0, 8)}` : 'Not available'}</div>
+      <div style={styles.identity}>방 ID (room): {value(normalizedRoomId)} · 매치 식별값 (matchEpoch): {identity ? `${identity.matchEpoch.slice(0, 8)} / ${identity.bridgeSessionId.slice(0, 8)}` : '정보 없음'}</div>
       {!snapshot || snapshot.roomId !== normalizedRoomId ? <section style={styles.empty}>현재 매치 snapshot을 기다리는 중입니다.</section> : (
         <>
           <section style={styles.grid}>
-            <Card title="Player profile">
-              <Field label="WPM">{value(snapshot.profile.wpm)}</Field><Field label="Accuracy">{percent(snapshot.profile.accuracy)}</Field>
-              <Field label="Reaction">{value(snapshot.profile.reactionTimeMs)} ms</Field><Field label="Samples">{value(snapshot.profile.sampleCount)}</Field>
-              <Field label="Confidence">{percent(snapshot.profile.confidence)}</Field><Field label="Source">{value(snapshot.profile.source)}</Field>
-              <Field label="Profile version">{value(snapshot.profile.profileVersion)}</Field>
-              <Field label="Population version">{value(snapshot.profile.populationDefaultVersion)}</Field>
-              <Field label="Fallback">{fallbackLabel(snapshot.profile.fallbackReason)}</Field>
-              <Field label="WPM samples/confidence">{metricSummary(metricMetadata(snapshot.profile, 'wpm'))}</Field>
-              <Field label="Accuracy samples/confidence">{metricSummary(metricMetadata(snapshot.profile, 'accuracy'))}</Field>
-              <Field label="Reaction samples/confidence">{metricSummary(metricMetadata(snapshot.profile, 'reactionTimeMs'))}</Field>
+            <Card title="플레이어 프로필">
+              <Field label="입력 속도 (WPM)">{value(snapshot.profile.wpm)}</Field><Field label="정확도">{percent(snapshot.profile.accuracy)}</Field>
+              <Field label="반응 시간">{value(snapshot.profile.reactionTimeMs)} ms</Field><Field label="표본 수">{value(snapshot.profile.sampleCount)}</Field>
+              <Field label="신뢰도">{percent(snapshot.profile.confidence)}</Field><Field label="프로필 출처">{enumLabel(snapshot.profile.source, SOURCE_LABELS)}</Field>
+              <Field label="프로필 버전">{value(snapshot.profile.profileVersion)}</Field>
+              <Field label="모집단 버전">{value(snapshot.profile.populationDefaultVersion)}</Field>
+              <Field label="기본값 적용 사유">{fallbackLabel(snapshot.profile.fallbackReason)}</Field>
+              <Field label="입력 속도 표본/신뢰도">{metricSummary(metricMetadata(snapshot.profile, 'wpm'))}</Field>
+              <Field label="정확도 표본/신뢰도">{metricSummary(metricMetadata(snapshot.profile, 'accuracy'))}</Field>
+              <Field label="반응 시간 표본/신뢰도">{metricSummary(metricMetadata(snapshot.profile, 'reactionTimeMs'))}</Field>
             </Card>
-            <Card title="Execution profile">
-              <Field label="Difficulty">{value(snapshot.executionProfile.difficulty)}</Field><Field label="Typing WPM">{value(snapshot.executionProfile.typingWpm)}</Field>
-              <Field label="Accuracy">{percent(snapshot.executionProfile.accuracy)}</Field><Field label="Reaction delay">{value(snapshot.executionProfile.reactionDelayMs)} ms</Field>
-              <Field label="Typo">{percent(snapshot.executionProfile.typoProbability)}</Field><Field label="Correction">{value(snapshot.executionProfile.correctionDelayMs)} ms</Field>
-              <Field label="Abandon">{percent(snapshot.executionProfile.abandonProbability)}</Field>
+            <Card title="실행 프로필">
+              <Field label="난이도">{enumLabel(snapshot.executionProfile.difficulty, DIFFICULTY_LABELS)}</Field><Field label="입력 속도 (WPM)">{value(snapshot.executionProfile.typingWpm)}</Field>
+              <Field label="정확도">{percent(snapshot.executionProfile.accuracy)}</Field><Field label="반응 지연">{value(snapshot.executionProfile.reactionDelayMs)} ms</Field>
+              <Field label="오타 확률">{percent(snapshot.executionProfile.typoProbability)}</Field><Field label="수정 지연">{value(snapshot.executionProfile.correctionDelayMs)} ms</Field>
+              <Field label="포기 확률">{percent(snapshot.executionProfile.abandonProbability)}</Field>
             </Card>
-            <Card title="Current decision">
-              <Field label="Action">{value(snapshot.currentDecision.action)}</Field><Field label="Phase">{value(snapshot.currentDecision.phase)}</Field>
-              <Field label="Target">{value(snapshot.currentDecision.targetWordId)}</Field><Field label="Previous">{value(snapshot.currentDecision.previousTargetWordId)}</Field>
-              <Field label="Keystrokes">{snapshot.completedKeystrokes} / {snapshot.totalKeystrokes}</Field><Field label="stateVersion">{snapshot.stateVersion}</Field>
+            <Card title="현재 판단">
+              <Field label="선택 행동">{enumLabel(snapshot.currentDecision.action, ACTION_LABELS)}</Field><Field label="행동 단계">{enumLabel(snapshot.currentDecision.phase, PHASE_LABELS)}</Field>
+              <Field label="목표 단어">{value(snapshot.currentDecision.targetWordId)}</Field><Field label="이전 목표">{value(snapshot.currentDecision.previousTargetWordId)}</Field>
+              <Field label="입력 횟수">{snapshot.completedKeystrokes} / {snapshot.totalKeystrokes}</Field><Field label="상태 버전 (stateVersion)">{snapshot.stateVersion}</Field>
             </Card>
-            <Card title="Behavior metrics">
-              <BehaviorMetric label="Typo probability" metadata={metricMetadata(snapshot.profile, 'typoProbability')} fallback={snapshot.profile.fallbackReason} />
-              <BehaviorMetric label="Correction delay" metadata={metricMetadata(snapshot.profile, 'correctionDelayMs')} fallback={snapshot.profile.fallbackReason} />
-              <BehaviorMetric label="Abandon probability" metadata={metricMetadata(snapshot.profile, 'abandonProbability')} fallback={snapshot.profile.fallbackReason} />
-              <BehaviorMetric label="Short word performance" metadata={metricMetadata(snapshot.profile, 'shortWordPerformance')} fallback={snapshot.profile.fallbackReason} />
-              <BehaviorMetric label="Medium word performance" metadata={metricMetadata(snapshot.profile, 'mediumWordPerformance')} fallback={snapshot.profile.fallbackReason} />
-              <BehaviorMetric label="Long word performance" metadata={metricMetadata(snapshot.profile, 'longWordPerformance')} fallback={snapshot.profile.fallbackReason} />
-              <div style={styles.muted}>Word type preference: Not available</div>
+            <Card title="행동 지표">
+              <BehaviorMetric label="오타 확률" metadata={metricMetadata(snapshot.profile, 'typoProbability')} fallback={snapshot.profile.fallbackReason} />
+              <BehaviorMetric label="수정 지연" metadata={metricMetadata(snapshot.profile, 'correctionDelayMs')} fallback={snapshot.profile.fallbackReason} />
+              <BehaviorMetric label="포기 확률" metadata={metricMetadata(snapshot.profile, 'abandonProbability')} fallback={snapshot.profile.fallbackReason} />
+              <BehaviorMetric label="짧은 단어 성능" metadata={metricMetadata(snapshot.profile, 'shortWordPerformance')} fallback={snapshot.profile.fallbackReason} />
+              <BehaviorMetric label="중간 단어 성능" metadata={metricMetadata(snapshot.profile, 'mediumWordPerformance')} fallback={snapshot.profile.fallbackReason} />
+              <BehaviorMetric label="긴 단어 성능" metadata={metricMetadata(snapshot.profile, 'longWordPerformance')} fallback={snapshot.profile.fallbackReason} />
+              <div style={styles.muted}>단어 유형 선호: 정보 없음</div>
             </Card>
           </section>
-          <Card title="Candidates">
-            <div style={styles.table}><div style={styles.tableRow}><b>Word</b><b>Eligible</b><b>Selected</b><b>Utility</b><b>Success</b><b>Remaining</b></div>
-              {snapshot.candidates.map(candidate => <div style={styles.tableRow} key={candidate.wordId}><span>{candidate.wordId}</span><span>{candidate.eligible ? 'true' : 'false'}</span><span>{candidate.selected ? 'true' : 'false'}</span><span>{value(candidate.utility)}</span><span>{percent(candidate.successProbability)}</span><span>{value(candidate.remainingMs)} ms</span></div>)}
+          <Card title="후보 단어">
+            <div style={styles.table}><div style={styles.tableRow}><b>단어</b><b>선택 가능</b><b>선택됨</b><b>효용</b><b>성공 확률</b><b>남은 시간</b></div>
+              {snapshot.candidates.map(candidate => <div style={styles.tableRow} key={candidate.wordId}><span>{candidate.wordId}</span><span>{candidate.eligible ? '가능' : '불가'}</span><span>{candidate.selected ? '선택됨' : '미선택'}</span><span>{value(candidate.utility)}</span><span>{percent(candidate.successProbability)}</span><span>{value(candidate.remainingMs)} ms</span></div>)}
             </div>
           </Card>
-          <Card title="Recent decisions">
-            {history.length === 0 ? <div style={styles.muted}>Not available</div> : history.map(entry => <div style={styles.historyRow} key={entry.stateVersion}><span>#{entry.stateVersion}</span><span>{entry.action}</span><span>{entry.phase}</span><span>{value(entry.targetWordId)}</span></div>)}
+          <Card title="최근 판단 기록">
+            {history.length === 0 ? <div style={styles.muted}>정보 없음</div> : history.map(entry => <div style={styles.historyRow} key={entry.stateVersion}><span>#{entry.stateVersion}</span><span>{enumLabel(entry.action, ACTION_LABELS)}</span><span>{enumLabel(entry.phase, PHASE_LABELS)}</span><span>{value(entry.targetWordId)}</span></div>)}
           </Card>
-          <div style={styles.notAvailable}>Strategy · rejectionReason · expectedDamage · selectionProbability: Not available</div>
+          <div style={styles.notAvailable}>전략 · 거절 사유 · 예상 피해 · 선택 확률: 정보 없음</div>
         </>
       )}
     </main>
@@ -188,7 +227,7 @@ export default function AiMonitorPage() {
 }
 
 function metricSummary(metadata: AiMonitorMetricMetadata | null): string {
-  if (!metadata) return 'Not available';
+  if (!metadata) return '정보 없음';
   return `${metadata.sampleCount} / ${percent(metadata.confidence)} (${metricAvailability(metadata)})`;
 }
 
@@ -204,8 +243,8 @@ function BehaviorMetric({
   return (
     <Field label={label}>
       {metadata
-        ? `${metricAvailability(metadata)} · ${metadata.sampleCount} samples · ${percent(metadata.confidence)}${metadata.available ? '' : ` · ${fallbackLabel(fallback)}`}`
-        : `Not available · ${fallbackLabel(fallback)}`}
+        ? `${metricAvailability(metadata)} · ${metadata.sampleCount} 표본 · ${percent(metadata.confidence)}${metadata.available ? '' : ` · ${fallbackLabel(fallback)}`}`
+        : `정보 없음 · ${fallbackLabel(fallback)}`}
     </Field>
   );
 }

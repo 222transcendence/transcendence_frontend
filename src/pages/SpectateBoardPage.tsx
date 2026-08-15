@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import styled from 'styled-components';
 import { useAcidRainSocket } from '../hooks/useAcidRainSocket';
 import { useOpponentTypingState } from '../hooks/useOpponentTypingState';
 import { useWordFontSize } from '../hooks/useWordFontSize';
@@ -235,90 +236,90 @@ export default function SpectateBoardPage() {
 
   if (notSpectatable) {
     return (
-      <div style={S.page}>
-        <div style={S.center}>
-          <div style={S.notSpectatableBox}>이 방은 현재 관전할 수 없습니다</div>
-          <button style={S.primaryBtn} onClick={() => navigate('/lobby')}>로비로 돌아가기</button>
-        </div>
-      </div>
+      <Page>
+        <Center>
+          <NotSpectatableBox>이 방은 현재 관전할 수 없습니다</NotSpectatableBox>
+          <PrimaryBtn onClick={() => navigate('/lobby')}>로비로 돌아가기</PrimaryBtn>
+        </Center>
+      </Page>
     );
   }
 
   if (endData) {
     const ranking = [...endData.ranking].sort((a, b) => a.rank - b.rank);
     return (
-      <div style={S.page}>
-        <div style={S.endOverlay}>
-          <div style={S.endCard}>
-            <div style={S.endTitle}>🏁 경기 종료</div>
-            <div style={S.endReason}>
+      <Page>
+        <EndOverlay>
+          <EndCard>
+            <EndTitle>🏁 경기 종료</EndTitle>
+            <EndReason>
               {endData.reason === 'KO' && 'KO 승리'}
               {endData.reason === 'TIME_LIMIT' && '시간 종료'}
               {endData.reason === 'FORFEIT' && '상대방 기권'}
-            </div>
-            <div style={S.endStats}>
+            </EndReason>
+            <EndStats>
               {ranking.map(r => (
-                <div key={r.participantId} style={S.endStatRow}>
-                  <span style={S.endStatLabel}>#{r.rank}</span>
+                <EndStatRow key={r.participantId}>
+                  <EndStatLabel>#{r.rank}</EndStatLabel>
                   <span style={{ color: r.participantId === endData.winnerId ? '#12c8a8' : '#c7cede', flex: 1, textAlign: 'left' as const }}>{nicknameFor(r.participantId)}</span>
                   <span style={{ color: '#8a93a8' }}>HP {endData.finalHp[r.participantId] ?? 0}</span>
                   <span style={{ color: '#8a93a8' }}>{endData.wordsTyped?.[r.participantId] ?? 0}단어</span>
-                </div>
+                </EndStatRow>
               ))}
-              <div style={S.endStatRow}>
-                <span style={S.endStatLabel}>게임 시간</span>
+              <EndStatRow>
+                <EndStatLabel>게임 시간</EndStatLabel>
                 <span style={{ color: '#e2e8f5' }}>{fmtTime(endData.durationSec)}</span>
-              </div>
-            </div>
-            <button style={S.primaryBtn} onClick={() => navigate('/lobby')}>로비로 돌아가기</button>
-          </div>
-        </div>
-      </div>
+              </EndStatRow>
+            </EndStats>
+            <PrimaryBtn onClick={() => navigate('/lobby')}>로비로 돌아가기</PrimaryBtn>
+          </EndCard>
+        </EndOverlay>
+      </Page>
     );
   }
 
   return (
-    <div style={S.page}>
-      <div style={S.outerLayout}>
-      <div style={S.gameCol}>
-        <div style={S.topBar}>
-          <button style={S.ghostSm} onClick={() => navigate('/lobby')}>⎋ 관전 종료</button>
-          <div style={S.spectatorBadge}>👁 관전 중</div>
-          <div style={S.timerBox}>
-            <span style={{ ...S.timerText, color: remaining <= 30 ? '#ef4a63' : '#e2e8f5' }}>
+    <Page>
+      <OuterLayout>
+      <GameCol>
+        <TopBar>
+          <GhostSm onClick={() => navigate('/lobby')}>⎋ 관전 종료</GhostSm>
+          <SpectatorBadge>👁 관전 중</SpectatorBadge>
+          <TimerBox>
+            <TimerText style={{ color: remaining <= 30 ? '#ef4a63' : '#e2e8f5' }}>
               {fmtTime(remaining)}
-            </span>
-          </div>
+            </TimerText>
+          </TimerBox>
           {participants.some(participant => participant.type === 'AI') && roomId && (
             <AiMonitorButton roomId={roomId} onOpen={monitor.openMonitor} />
           )}
-        </div>
+        </TopBar>
 
         {/* 참가자 HP — 관전자에게는 "나"가 없으므로 양쪽 다 동일한 패널로 렌더링 */}
-        <div style={S.hpZone}>
+        <HpZone>
           {participants.length === 0 && (
-            <div style={S.waitText}>
+            <WaitText>
               {connectionState === 'connecting' ? '연결 중…' : '매치 정보를 불러오는 중…'}
-            </div>
+            </WaitText>
           )}
           {participants.map(p => {
             const pct = Math.max(0, (p.hp / MAX_HP) * 100);
             const eliminated = p.rank !== undefined;
             return (
-              <div
+              <PlayerRow
                 key={p.participantId}
-                style={{ ...S.playerRow, background: flashByParticipantId[p.participantId] ? 'rgba(239,74,99,.1)' : 'transparent', transition: 'background .15s', opacity: eliminated ? 0.5 : 1, borderRadius: 8 }}
+                style={{ background: flashByParticipantId[p.participantId] ? 'rgba(239,74,99,.1)' : 'transparent', transition: 'background .15s', opacity: eliminated ? 0.5 : 1, borderRadius: 8 }}
               >
-                <div style={{ ...S.avatar, borderColor: eliminated ? '#5c6a8a' : '#12c8a8' }} />
+                <Avatar style={{ borderColor: eliminated ? '#5c6a8a' : '#12c8a8' }} />
                 <div style={{ flex: 1 }}>
-                  <div style={S.nickname}>{p.nickname}{eliminated ? ` · 탈락 #${p.rank}` : ''}</div>
-                  <div style={S.hpRow}>
-                    <span style={S.hpLabel}>HP</span>
-                    <div style={S.hpTrack}>
-                      <div style={{ ...S.hpFill, width: `${pct}%`, background: hpColor(pct) }} />
-                    </div>
-                    <span style={S.hpNum}>{p.hp} / {MAX_HP}</span>
-                  </div>
+                  <Nickname>{p.nickname}{eliminated ? ` · 탈락 #${p.rank}` : ''}</Nickname>
+                  <HpRow>
+                    <HpLabel>HP</HpLabel>
+                    <HpTrack>
+                      <HpFill style={{ width: `${pct}%`, background: hpColor(pct) }} />
+                    </HpTrack>
+                    <HpNum>{p.hp} / {MAX_HP}</HpNum>
+                  </HpRow>
                   {/* 실시간 입력 진행도 (#85). 내용 유무와 무관하게 컨테이너를 항상
                       마운트해 높이를 예약해두고 visibility만 토글한다 — 그래야
                       표시/숨김 전환마다 HP 영역 높이가 흔들리지 않는다(GameBoardPage의
@@ -340,23 +341,23 @@ export default function SpectateBoardPage() {
                     );
                   })()}
                 </div>
-              </div>
+              </PlayerRow>
             );
           })}
-        </div>
+        </HpZone>
 
         {/* Rain area — 읽기 전용, 입력창 없음 */}
-        <div style={S.rainArea}>
+        <RainArea>
           {phase === 'WAITING' && participants.length > 0 && (
-            <div style={S.rainOverlay}>
-              <div style={S.waitText}>매치 시작 대기 중…</div>
-            </div>
+            <RainOverlay>
+              <WaitText>매치 시작 대기 중…</WaitText>
+            </RainOverlay>
           )}
           {phase === 'COUNTDOWN' && countdown !== null && (
-            <div style={{ ...S.rainOverlay, flexDirection: 'column' }}>
-              <div style={S.countdownNum}>{countdown}</div>
-              <div style={S.countdownLabel}>곧 시작합니다!</div>
-            </div>
+            <RainOverlay style={{ flexDirection: 'column' }}>
+              <CountdownNum>{countdown}</CountdownNum>
+              <CountdownLabel>곧 시작합니다!</CountdownLabel>
+            </RainOverlay>
           )}
 
           {words.map(word => (
@@ -412,277 +413,308 @@ export default function SpectateBoardPage() {
           ))}
 
           {disconnectedParticipant && (
-            <div style={S.disconnectBanner}>
+            <DisconnectBanner>
               한 참가자의 연결이 끊겼습니다. 재접속을 기다리는 중입니다.
-            </div>
+            </DisconnectBanner>
           )}
-        </div>
-      </div>
+        </RainArea>
+      </GameCol>
 
-      <div style={S.chatCol}>
+      <ChatCol>
         <ChatPanel currentUserId={myUserIdRef.current} roomId={roomId} />
-      </div>
-      </div>
-    </div>
+      </ChatCol>
+      </OuterLayout>
+    </Page>
   );
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
-const S = {
-  page: {
-    minHeight: '100dvh',
-    background: 'radial-gradient(ellipse 1200px 700px at 50% -5%, #0a1520 0%, #05070c 60%)',
-    fontFamily: "'Inter', sans-serif",
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center',
-    padding: '12px',
-  },
-  center: {
-    minHeight: '100dvh',
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 20,
-  },
-  notSpectatableBox: {
-    background: 'rgba(239,74,99,.08)',
-    border: '1px solid rgba(239,74,99,.3)',
-    borderRadius: 12,
-    padding: '20px 32px',
-    color: '#ef4a63',
-    fontFamily: "'JetBrains Mono', monospace",
-    fontSize: 14,
-  },
-  outerLayout: {
-    width: '100%',
-    maxWidth: 1100,
-    display: 'flex',
-    gap: 12,
-    alignItems: 'stretch',
-    height: 'calc(100dvh - 24px)',
-  },
-  gameCol: {
-    flex: 1,
-    minWidth: 0,
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: 8,
-  },
-  chatCol: {
-    width: 240,
-    flexShrink: 0,
-    height: '100%',
-  },
-  topBar: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    flexShrink: 0,
-  },
-  spectatorBadge: {
-    background: 'rgba(18,200,168,.1)',
-    border: '1px solid rgba(18,200,168,.35)',
-    borderRadius: 20,
-    padding: '4px 14px',
-    color: '#12c8a8',
-    fontFamily: "'JetBrains Mono', monospace",
-    fontSize: 11,
-    letterSpacing: '.05em',
-  },
-  timerBox: {
-    background: '#0d1220',
-    border: '1px solid rgba(255,255,255,.08)',
-    borderRadius: 10,
-    padding: '4px 16px',
-  },
-  timerText: {
-    fontFamily: "'JetBrains Mono', monospace",
-    fontWeight: 700,
-    fontSize: 22,
-  },
-  hpZone: {
-    background: '#0d1220',
-    border: '1px solid rgba(255,255,255,.07)',
-    borderRadius: 12,
-    padding: '12px 16px',
-    flexShrink: 0,
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: 10,
-  },
-  playerRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: '50%',
-    background: '#182236',
-    border: '2px solid',
-    flexShrink: 0,
-  },
-  nickname: {
-    fontFamily: "'Rajdhani', sans-serif",
-    fontWeight: 700,
-    fontSize: 15,
-    color: '#e2e8f5',
-    marginBottom: 4,
-  },
-  hpRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-  },
-  hpLabel: {
-    fontFamily: "'JetBrains Mono', monospace",
-    fontSize: 9,
-    color: '#8a93a8',
-    width: 20,
-  },
-  hpTrack: {
-    flex: 1,
-    height: 8,
-    borderRadius: 4,
-    background: '#182236',
-    overflow: 'hidden',
-    maxWidth: 300,
-  },
-  hpFill: {
-    height: '100%',
-    borderRadius: 4,
-    transition: 'width .4s ease, background .4s ease',
-  },
-  hpNum: {
-    fontFamily: "'JetBrains Mono', monospace",
-    fontSize: 11,
-    color: '#c7cede',
-    minWidth: 60,
-  },
-  rainArea: {
-    flex: 1,
-    position: 'relative' as const,
-    background: 'rgba(5,7,12,.6)',
-    border: '1px solid rgba(18,200,168,.08)',
-    borderRadius: 12,
-    overflow: 'hidden',
-    minHeight: 0,
-  },
-  rainOverlay: {
-    position: 'absolute' as const,
-    inset: 0,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'rgba(5,7,12,.7)',
-    zIndex: 10,
-  },
-  waitText: {
-    fontFamily: "'JetBrains Mono', monospace",
-    fontSize: 18,
-    color: '#5c6a8a',
-    letterSpacing: '.08em',
-  },
-  countdownNum: {
-    fontFamily: "'Rajdhani', sans-serif",
-    fontWeight: 700,
-    fontSize: 120,
-    color: '#12c8a8',
-    lineHeight: 1,
-    textShadow: '0 0 40px rgba(18,200,168,.5)',
-  },
-  countdownLabel: {
-    fontFamily: "'JetBrains Mono', monospace",
-    fontSize: 14,
-    color: '#5c6a8a',
-    letterSpacing: '.2em',
-    marginTop: 12,
-  },
-  disconnectBanner: {
-    position: 'absolute' as const,
-    bottom: 12,
-    left: '50%',
-    transform: 'translateX(-50%)',
-    background: 'rgba(239,74,99,.12)',
-    border: '1px solid rgba(239,74,99,.4)',
-    borderRadius: 8,
-    padding: '8px 16px',
-    color: '#ef4a63',
-    fontFamily: "'JetBrains Mono', monospace",
-    fontSize: 11,
-    whiteSpace: 'nowrap' as const,
-    zIndex: 20,
-  },
-  ghostSm: {
-    padding: '5px 10px',
-    borderRadius: 6,
-    border: '1px solid rgba(255,255,255,.14)',
-    background: 'transparent',
-    color: '#8a93a8',
-    cursor: 'pointer',
-    fontSize: 10.5,
-    fontFamily: "'JetBrains Mono', monospace",
-  },
-  primaryBtn: {
-    padding: '11px 28px',
-    borderRadius: 10,
-    border: '1px solid rgba(18,200,168,.5)',
-    background: 'rgba(18,200,168,.12)',
-    color: '#12c8a8',
-    fontFamily: "'Rajdhani', sans-serif",
-    fontWeight: 700,
-    fontSize: 15,
-    cursor: 'pointer',
-  },
-  endOverlay: {
-    minHeight: '100dvh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  endCard: {
-    background: '#0d1220',
-    border: '1px solid rgba(255,255,255,.1)',
-    borderRadius: 20,
-    padding: '40px 48px',
-    minWidth: 380,
-    textAlign: 'center' as const,
-    boxShadow: '0 32px 80px rgba(0,0,0,.6)',
-  },
-  endTitle: {
-    fontFamily: "'Rajdhani', sans-serif",
-    fontWeight: 700,
-    fontSize: 36,
-    marginBottom: 8,
-    color: '#e2e8f5',
-  },
-  endReason: {
-    fontFamily: "'JetBrains Mono', monospace",
-    fontSize: 12,
-    color: '#5c6a8a',
-    letterSpacing: '.1em',
-    marginBottom: 32,
-  },
-  endStats: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: 12,
-    marginBottom: 32,
-  },
-  endStatRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    fontFamily: "'JetBrains Mono', monospace",
-    fontSize: 13,
-  },
-  endStatLabel: {
-    color: '#5c6a8a',
-    minWidth: 80,
-    textAlign: 'right' as const,
-  },
-} as const;
+const Page = styled.div`
+  min-height: 100dvh;
+  background: radial-gradient(ellipse 1200px 700px at 50% -5%, #0a1520 0%, #05070c 60%);
+  font-family: 'Inter', sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+`;
+
+const Center = styled.div`
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+`;
+
+const NotSpectatableBox = styled.div`
+  background: rgba(239, 74, 99, 0.08);
+  border: 1px solid rgba(239, 74, 99, 0.3);
+  border-radius: 12px;
+  padding: 20px 32px;
+  color: #ef4a63;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+`;
+
+const OuterLayout = styled.div`
+  width: 100%;
+  max-width: 1100px;
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+  height: calc(100dvh - 24px);
+`;
+
+const GameCol = styled.div`
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+
+const ChatCol = styled.div`
+  width: 240px;
+  flex-shrink: 0;
+  height: 100%;
+`;
+
+const TopBar = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+`;
+
+const SpectatorBadge = styled.div`
+  background: rgba(18, 200, 168, 0.1);
+  border: 1px solid rgba(18, 200, 168, 0.35);
+  border-radius: 20px;
+  padding: 4px 14px;
+  color: #12c8a8;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+`;
+
+const TimerBox = styled.div`
+  background: #0d1220;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 4px 16px;
+`;
+
+const TimerText = styled.span`
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 22px;
+`;
+
+const HpZone = styled.div`
+  background: #0d1220;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 12px 16px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+`;
+
+const PlayerRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`;
+
+const Avatar = styled.div`
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #182236;
+  border: 2px solid;
+  flex-shrink: 0;
+`;
+
+const Nickname = styled.div`
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: #e2e8f5;
+  margin-bottom: 4px;
+`;
+
+const HpRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const HpLabel = styled.span`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #8a93a8;
+  width: 20px;
+`;
+
+const HpTrack = styled.div`
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: #182236;
+  overflow: hidden;
+  max-width: 300px;
+`;
+
+const HpFill = styled.div`
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease, background 0.4s ease;
+`;
+
+const HpNum = styled.span`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #c7cede;
+  min-width: 60px;
+`;
+
+const RainArea = styled.div`
+  flex: 1;
+  position: relative;
+  background: rgba(5, 7, 12, 0.6);
+  border: 1px solid rgba(18, 200, 168, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  min-height: 0;
+`;
+
+const RainOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 7, 12, 0.7);
+  z-index: 10;
+`;
+
+const WaitText = styled.div`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 18px;
+  color: #5c6a8a;
+  letter-spacing: 0.08em;
+`;
+
+const CountdownNum = styled.div`
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 120px;
+  color: #12c8a8;
+  line-height: 1;
+  text-shadow: 0 0 40px rgba(18, 200, 168, 0.5);
+`;
+
+const CountdownLabel = styled.div`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  color: #5c6a8a;
+  letter-spacing: 0.2em;
+  margin-top: 12px;
+`;
+
+const DisconnectBanner = styled.div`
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(239, 74, 99, 0.12);
+  border: 1px solid rgba(239, 74, 99, 0.4);
+  border-radius: 8px;
+  padding: 8px 16px;
+  color: #ef4a63;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  white-space: nowrap;
+  z-index: 20;
+`;
+
+const GhostSm = styled.button`
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: #8a93a8;
+  cursor: pointer;
+  font-size: 10.5px;
+  font-family: 'JetBrains Mono', monospace;
+`;
+
+const PrimaryBtn = styled.button`
+  padding: 11px 28px;
+  border-radius: 10px;
+  border: 1px solid rgba(18, 200, 168, 0.5);
+  background: rgba(18, 200, 168, 0.12);
+  color: #12c8a8;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+`;
+
+const EndOverlay = styled.div`
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const EndCard = styled.div`
+  background: #0d1220;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 40px 48px;
+  min-width: 380px;
+  text-align: center;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6);
+`;
+
+const EndTitle = styled.div`
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 36px;
+  margin-bottom: 8px;
+  color: #e2e8f5;
+`;
+
+const EndReason = styled.div`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #5c6a8a;
+  letter-spacing: 0.1em;
+  margin-bottom: 32px;
+`;
+
+const EndStats = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 32px;
+`;
+
+const EndStatRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+`;
+
+const EndStatLabel = styled.span`
+  color: #5c6a8a;
+  min-width: 80px;
+  text-align: right;
+`;

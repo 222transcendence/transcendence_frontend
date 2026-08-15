@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import styled from 'styled-components';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -58,145 +59,159 @@ export default function SignupPage() {
   ];
 
   return (
-    <div style={S.page}>
-      <div style={S.card}>
-        <div style={S.logo}>Acid-Rain</div>
-        <div style={S.subtitle}>새 계정을 만드세요</div>
+    <Page>
+      <Card>
+        <Logo>Acid-Rain</Logo>
+        <Subtitle>새 계정을 만드세요</Subtitle>
 
-        {serverError && <div style={S.errorBox}>{serverError}</div>}
+        {serverError && <ErrorBox>{serverError}</ErrorBox>}
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <Form onSubmit={handleSubmit}>
           {fields.map(f => (
             <div key={f.id}>
-              <label style={S.label}>{f.label}</label>
-              <input
+              <Label>{f.label}</Label>
+              <Input
                 type={f.type}
                 value={f.value}
                 onChange={e => f.setter(e.target.value)}
                 placeholder={f.placeholder}
-                style={S.input}
               />
-              {f.error && <div style={S.fieldError}>{f.error}</div>}
+              {f.error && <FieldError>{f.error}</FieldError>}
             </div>
           ))}
-          <button type="submit" disabled={isLoading} style={{ ...S.submitBtn, marginTop: 6 }}>
+          <SubmitBtn type="submit" disabled={isLoading} style={{ marginTop: 6 }}>
             {isLoading ? '가입 중…' : '회원가입'}
-          </button>
-        </form>
+          </SubmitBtn>
+        </Form>
 
-        <div style={S.footer}>
+        <Footer>
           이미 계정이 있으신가요?{' '}
-          <Link to="/login" style={S.link}>로그인</Link>
-        </div>
+          <FooterActionLink to="/login">로그인</FooterActionLink>
+        </Footer>
 
         <div style={{ marginTop: 20, textAlign: 'center' }}>
-          <Link to="/privacy-policy" style={S.footerLink}>개인정보처리방침</Link>
+          <FooterLink to="/privacy-policy">개인정보처리방침</FooterLink>
           <span style={{ color: '#3a4256', margin: '0 8px' }}>·</span>
-          <Link to="/terms-of-service" style={S.footerLink}>이용약관</Link>
+          <FooterLink to="/terms-of-service">이용약관</FooterLink>
         </div>
-      </div>
-    </div>
+      </Card>
+    </Page>
   );
 }
 
-const S = {
-  page: {
-    minHeight: '100dvh',
-    background: 'radial-gradient(ellipse 900px 600px at 50% -10%, #0e1a24 0%, #05070c 60%)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  card: {
-    width: '100%',
-    maxWidth: 420,
-    background: '#0d1220',
-    border: '1px solid rgba(255,255,255,.08)',
-    borderRadius: 20,
-    padding: '36px 36px',
-    boxShadow: '0 24px 60px rgba(0,0,0,.5)',
-  },
-  logo: {
-    fontFamily: "'Rajdhani',sans-serif",
-    fontWeight: 700 as const,
-    fontSize: 22,
-    letterSpacing: '.25em',
-    color: '#12c8a8',
-    textAlign: 'center' as const,
-    marginBottom: 6,
-  },
-  subtitle: {
-    fontFamily: "'Inter',sans-serif",
-    fontSize: 13,
-    color: '#5c6a8a',
-    textAlign: 'center' as const,
-    marginBottom: 24,
-  },
-  errorBox: {
-    background: 'rgba(239,74,99,.1)',
-    border: '1px solid rgba(239,74,99,.3)',
-    borderRadius: 10,
-    padding: '10px 14px',
-    color: '#ef4a63',
-    fontSize: 13,
-    marginBottom: 14,
-    fontFamily: "'JetBrains Mono',monospace",
-  },
-  label: {
-    display: 'block' as const,
-    fontFamily: "'JetBrains Mono',monospace",
-    fontSize: 10,
-    letterSpacing: '.1em',
-    color: '#5c6a8a',
-    marginBottom: 5,
-    textTransform: 'uppercase' as const,
-  },
-  input: {
-    width: '100%',
-    padding: '10px 14px',
-    borderRadius: 9,
-    border: '1px solid rgba(255,255,255,.1)',
-    background: 'rgba(255,255,255,.03)',
-    color: '#e2e8f5',
-    fontFamily: "'Inter',sans-serif",
-    fontSize: 14,
-    outline: 'none',
-  },
-  fieldError: {
-    marginTop: 4,
-    fontFamily: "'JetBrains Mono',monospace",
-    fontSize: 11,
-    color: '#ef4a63',
-  },
-  submitBtn: {
-    width: '100%',
-    padding: '12px 0',
-    borderRadius: 10,
-    border: '1px solid rgba(18,200,168,.5)',
-    background: 'rgba(18,200,168,.12)',
-    color: '#12c8a8',
-    fontFamily: "'Rajdhani',sans-serif",
-    fontWeight: 700 as const,
-    fontSize: 15,
-    cursor: 'pointer',
-  },
-  footer: {
-    marginTop: 20,
-    textAlign: 'center' as const,
-    fontFamily: "'Inter',sans-serif",
-    fontSize: 13,
-    color: '#5c6a8a',
-  },
-  link: {
-    color: '#12c8a8',
-    textDecoration: 'none',
-    fontWeight: 600 as const,
-  },
-  footerLink: {
-    color: '#3a4256',
-    textDecoration: 'none',
-    fontSize: 11,
-    fontFamily: "'JetBrains Mono',monospace",
-  },
-} as const;
+const Page = styled.div`
+  min-height: 100dvh;
+  background: radial-gradient(ellipse 900px 600px at 50% -10%, #0e1a24 0%, #05070c 60%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+`;
+
+const Card = styled.div`
+  width: 100%;
+  max-width: 420px;
+  background: #0d1220;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 36px 36px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+`;
+
+const Logo = styled.div`
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 0.25em;
+  color: #12c8a8;
+  text-align: center;
+  margin-bottom: 6px;
+`;
+
+const Subtitle = styled.div`
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: #5c6a8a;
+  text-align: center;
+  margin-bottom: 24px;
+`;
+
+const ErrorBox = styled.div`
+  background: rgba(239, 74, 99, 0.1);
+  border: 1px solid rgba(239, 74, 99, 0.3);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: #ef4a63;
+  font-size: 13px;
+  margin-bottom: 14px;
+  font-family: 'JetBrains Mono', monospace;
+`;
+
+const Form = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+`;
+
+const Label = styled.label`
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: #5c6a8a;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+`;
+
+const Input = styled.input`
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: #e2e8f5;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  outline: none;
+`;
+
+const FieldError = styled.div`
+  margin-top: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #ef4a63;
+`;
+
+const SubmitBtn = styled.button`
+  width: 100%;
+  padding: 12px 0;
+  border-radius: 10px;
+  border: 1px solid rgba(18, 200, 168, 0.5);
+  background: rgba(18, 200, 168, 0.12);
+  color: #12c8a8;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+`;
+
+const Footer = styled.div`
+  margin-top: 20px;
+  text-align: center;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: #5c6a8a;
+`;
+
+const FooterActionLink = styled(Link)`
+  color: #12c8a8;
+  text-decoration: none;
+  font-weight: 600;
+`;
+
+const FooterLink = styled(Link)`
+  color: #3a4256;
+  text-decoration: none;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+`;

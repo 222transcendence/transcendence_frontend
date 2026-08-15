@@ -12,6 +12,11 @@ import type { FallingWord, MatchEndData, GamePhase, ParticipantState, HpByPartic
 
 const MAX_HP = 100;
 const MATCH_DURATION = 180;
+// 매치 종료 후 새로고침 등으로 재마운트되면 서버 세션이 이미 정리돼(#123)
+// match_ready/state_sync가 영원히 오지 않을 수 있다 — SpectateBoardPage의
+// notSpectatable과 같은 패턴으로, 이 시간 안에 WAITING을 벗어나지 못하면
+// "더 이상 진행할 수 없는 매치"로 간주한다.
+const MATCH_UNAVAILABLE_TIMEOUT_MS = 6000;
 
 // fall 키프레임(translateY(-60px) → translateY(calc(100dvh - 40px)))과 정확히 같은 값을
 // 써야 한다 — 정답 처리 순간 현재 낙하 위치를 계산해 pop-out 애니메이션에 그대로
@@ -91,6 +96,7 @@ export default function GameBoardPage() {
   /** wordId → 정답 처리 순간의 낙하 위치(px) — pop-out 애니메이션이 그 지점에서 시작하도록 고정 */
   const [frozenYById, setFrozenYById] = useState<Record<string, number>>({});
   const [endData, setEndData]     = useState<(MatchEndData & { isWinner: boolean }) | null>(null);
+  const [matchUnavailable, setMatchUnavailable] = useState(false);
   // 강제 탈락/승리 처리 데드라인은 없다 — 그냥 정보성 배너다(backend#161).
   const [disconnectedOpponent, setDisconnectedOpponent] = useState(false);
   const [leaveConfirm, setLeaveConfirm] = useState(false);
@@ -151,6 +157,19 @@ export default function GameBoardPage() {
     }, 1000);
     return () => clearInterval(interval);
   }, [phase]);
+
+  // 종료된 매치를 새로고침 등으로 재방문하면 서버 세션이 이미 정리돼 있어
+  // match_ready/state_sync가 오지 않는다(#123) — 일정 시간 안에 WAITING을
+  // 벗어나지 못하면 더 이상 진행할 수 없는 매치로 간주한다.
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setPhase(current => {
+        if (current === 'WAITING') setMatchUnavailable(true);
+        return current;
+      });
+    }, MATCH_UNAVAILABLE_TIMEOUT_MS);
+    return () => clearTimeout(timeout);
+  }, []);
 
   // ── Profile fetch ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -329,6 +348,24 @@ export default function GameBoardPage() {
   const myHpPct = Math.max(0, (myPlayer.hp / MAX_HP) * 100);
   const remaining = Math.max(0, MATCH_DURATION - elapsed);
   const nicknameFor = (participantId: string) => players.find(p => p.participantId === participantId)?.nickname ?? (participantId === myId ? (myNickname || '나') : '???');
+
+  // 매치가 이미 끝나 서버 세션이 정리된 상태로 재방문한 경우(#123) — 무한
+  // 대기 대신 안내 화면을 보여준다.
+  if (matchUnavailable) {
+    return (
+      <Page>
+        <EndOverlay>
+          <EndCard>
+            <EndResult style={{ color: '#8a93a8', fontSize: 28 }}>이 매치는 더 이상 진행할 수 없습니다</EndResult>
+            <EndReason>이미 종료되었거나 존재하지 않는 방입니다</EndReason>
+            <EndActions>
+              <PrimaryBtn onClick={() => navigate('/lobby')}>로비로 돌아가기</PrimaryBtn>
+            </EndActions>
+          </EndCard>
+        </EndOverlay>
+      </Page>
+    );
+  }
 
   // ── End modal ─────────────────────────────────────────────────────────────
   if (endData) {

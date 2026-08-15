@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { io, Socket } from 'socket.io-client';
 import styled from 'styled-components';
 import { LobbySocket } from '../api/lobbySocket';
-import { fetchMyProfile, fetchUserProfile, sendFriendRequest, getFriends, getSentRequests, getValidAccessToken } from '../api/client';
+import { fetchMyProfile, fetchUserProfile, sendFriendRequest, getFriends, getSentRequests } from '../api/client';
+import { useChatSocketContext } from '../context/ChatSocketContext';
 import type { Room } from '../types/lobby';
 import type { PublicUserProfile } from '../types/user';
 import type { Friend } from '../types/friend';
@@ -13,6 +13,7 @@ export default function WaitingRoomPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
   const socketRef = useRef<LobbySocket | null>(null);
+  const { socket: chatSocket } = useChatSocketContext();
 
   const [room, setRoom] = useState<Room | null>(null);
   const [myUserId, setMyUserId] = useState<string | null>(null);
@@ -28,7 +29,6 @@ export default function WaitingRoomPage() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set());
-  const chatSocketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
     if (!roomId) return;
@@ -70,20 +70,11 @@ export default function WaitingRoomPage() {
       })
       .catch(() => { if (isMounted) { setErrorMessage('로비 서버에 연결할 수 없습니다.'); setIsConnecting(false); } });
 
-    // Chat socket for sending invites
-    getValidAccessToken().then(token => {
-      if (!token || !isMounted) return;
-      const chatSocket = io('/chat', { path: '/socketio', auth: { token: `Bearer ${token}` } });
-      chatSocketRef.current = chatSocket;
-    });
-
     return () => {
       isMounted = false;
       unsubs.forEach(u => u());
       if (!isTransitioningToGame) socket.send('LEAVE_ROOM', { roomId });
       socket.disconnect();
-      chatSocketRef.current?.disconnect();
-      chatSocketRef.current = null;
     };
   }, [roomId, navigate]);
 
@@ -96,14 +87,14 @@ export default function WaitingRoomPage() {
   }, []);
 
   const sendInvite = useCallback((friend: Friend) => {
-    if (!chatSocketRef.current?.connected || !roomId) return;
-    chatSocketRef.current.emit('send_message', {
+    if (!chatSocket?.connected || !roomId) return;
+    chatSocket.emit('send_message', {
       content: roomId,
       type: 'INVITE',
       targetUserId: friend.id,
     });
     setInvitedIds(prev => new Set([...prev, friend.id]));
-  }, [roomId]);
+  }, [roomId, chatSocket]);
 
   const myPlayer = room?.players.find(p => p.userId === myUserId);
   const isHost = room?.hostUserId === myUserId;

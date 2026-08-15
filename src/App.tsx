@@ -15,11 +15,13 @@ import AiMonitorPage from './pages/AiMonitorPage';
 import PrivateRoute from './components/PrivateRoute';
 import InviteNotification from './components/InviteNotification';
 import { GameSocketProvider } from './context/GameSocketContext';
+import { ChatSocketProvider } from './context/ChatSocketContext';
 import './App.css';
 
 function App() {
   return (
     <GameSocketProvider>
+    <ChatSocketProvider>
     <BrowserRouter>
       <Routes>
         {/* Home → Lobby */}
@@ -96,6 +98,7 @@ function App() {
       </Routes>
       <InviteNotification />
     </BrowserRouter>
+    </ChatSocketProvider>
     </GameSocketProvider>
   );
 }

@@ -97,6 +97,7 @@ export default function GameBoardPage() {
   const [frozenYById, setFrozenYById] = useState<Record<string, number>>({});
   const [endData, setEndData]     = useState<(MatchEndData & { isWinner: boolean }) | null>(null);
   const [matchUnavailable, setMatchUnavailable] = useState(false);
+  const [autoReturnSeconds, setAutoReturnSeconds] = useState<number | null>(null);
   // 강제 탈락/승리 처리 데드라인은 없다 — 그냥 정보성 배너다(backend#161).
   const [disconnectedOpponent, setDisconnectedOpponent] = useState(false);
   const [leaveConfirm, setLeaveConfirm] = useState(false);
@@ -170,6 +171,21 @@ export default function GameBoardPage() {
     }, MATCH_UNAVAILABLE_TIMEOUT_MS);
     return () => clearTimeout(timeout);
   }, []);
+
+  // ── 종료 화면 5초 후 자동 로비 복귀(#124) — 카운트다운 시작(5)은
+  // handleMatchEnd에서 endData와 함께 세팅하고, 여기서는 1초마다 감소시키는
+  // 역할만 한다(effect 본문에서 곧바로 setState하지 않도록).
+  useEffect(() => {
+    if (autoReturnSeconds === null) return;
+    if (autoReturnSeconds <= 0) {
+      navigate('/lobby');
+      return;
+    }
+    const timeout = setTimeout(() => {
+      setAutoReturnSeconds(prev => (prev === null ? null : prev - 1));
+    }, 1000);
+    return () => clearTimeout(timeout);
+  }, [autoReturnSeconds, navigate]);
 
   // ── Profile fetch ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -264,6 +280,7 @@ export default function GameBoardPage() {
     setWords([]);
     const isWinner = data.winnerId === myUserIdRef.current;
     setEndData({ ...data, isWinner });
+    setAutoReturnSeconds(5);
   }, [endMatch, monitor]);
 
   const handleOpponentDisconnected = useCallback(() => {
@@ -399,6 +416,9 @@ export default function GameBoardPage() {
             <EndActions>
               <PrimaryBtn onClick={() => navigate('/lobby')}>로비로 돌아가기</PrimaryBtn>
             </EndActions>
+            {autoReturnSeconds !== null && (
+              <AutoReturnHint>{autoReturnSeconds}초 후 로비로 이동합니다</AutoReturnHint>
+            )}
           </EndCard>
         </EndOverlay>
       </Page>
@@ -963,4 +983,11 @@ const EndActions = styled.div`
   display: flex;
   justify-content: center;
   gap: 12px;
+`;
+
+const AutoReturnHint = styled.div`
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #5c6a8a;
+  margin-top: 14px;
 `;

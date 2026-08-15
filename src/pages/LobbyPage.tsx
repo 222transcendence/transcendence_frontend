@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { io, Socket } from 'socket.io-client';
 import styled from 'styled-components';
 import { fetchLeaderboard } from '../api/gameStats';
-import { fetchChatHistory, getValidAccessToken } from '../api/client';
+import { fetchChatHistory } from '../api/client';
+import { useChatSocketContext } from '../context/ChatSocketContext';
 import type { LeaderboardEntry } from '../types/gameStats';
 import type { ChatMessage } from '../types/chat';
 import { LobbySocket } from '../api/lobbySocket';
@@ -809,38 +809,40 @@ const AiErrorMsg = styled.div`
 // ── Global chat ───────────────────────────────────────────────────────────────
 
 function GlobalChatPanel({ currentUserId }: { currentUserId: string }) {
+  const { socket } = useChatSocketContext();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [height, setHeight] = useState(220);
-  const socketRef = useRef<Socket | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const isComposingRef = useRef(false);
   const dragStartY = useRef(0);
   const dragStartH = useRef(0);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const token = await getValidAccessToken();
-      if (!token || cancelled) return;
-      const socket = io('/chat', { path: '/socketio', auth: { token: `Bearer ${token}` } });
-      socketRef.current = socket;
-      socket.on('connect', async () => {
-        try { const h = await fetchChatHistory(); setMessages(h.filter((m: ChatMessage) => !m.roomId)); } catch { /* ok */ }
-      });
-      socket.on('receive_message', (msg: ChatMessage) => { if (!msg.roomId && msg.type !== 'INVITE') setMessages(prev => [...prev, msg]); });
-      socket.on('connect_error', () => socket.disconnect());
-    })();
-    return () => { cancelled = true; socketRef.current?.disconnect(); socketRef.current = null; };
-  }, []);
+    if (!socket) return;
+
+    const loadHistory = async () => {
+      try { const h = await fetchChatHistory(); setMessages(h.filter((m: ChatMessage) => !m.roomId)); } catch { /* ok */ }
+    };
+    if (socket.connected) loadHistory();
+    socket.on('connect', loadHistory);
+
+    const handleMessage = (msg: ChatMessage) => { if (!msg.roomId && msg.type !== 'INVITE') setMessages(prev => [...prev, msg]); };
+    socket.on('receive_message', handleMessage);
+
+    return () => {
+      socket.off('connect', loadHistory);
+      socket.off('receive_message', handleMessage);
+    };
+  }, [socket]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   const send = () => {
     if (isComposingRef.current) return;
     const content = input.trim();
-    if (!content || !socketRef.current?.connected) return;
-    socketRef.current.emit('send_message', { content, type: 'NORMAL' });
+    if (!content || !socket?.connected) return;
+    socket.emit('send_message', { content, type: 'NORMAL' });
     setInput('');
   };
 

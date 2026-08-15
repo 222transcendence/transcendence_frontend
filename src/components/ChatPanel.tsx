@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { io, Socket } from 'socket.io-client';
 import styled from 'styled-components';
-import { fetchChatHistory, getValidAccessToken } from '../api/client';
+import { fetchChatHistory } from '../api/client';
+import { useChatSocketContext } from '../context/ChatSocketContext';
 import type { ChatMessage } from '../types/chat';
 
 interface ChatPanelProps {
@@ -12,28 +12,21 @@ interface ChatPanelProps {
 
 export default function ChatPanel({ currentUserId, roomId }: ChatPanelProps) {
   const isGame = !!roomId;
+  const { socket } = useChatSocketContext();
   const [isOpen, setIsOpen] = useState(isGame);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [unread, setUnread] = useState(0);
-  const socketRef = useRef<Socket | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const isOpenRef = useRef(isOpen);
   const isComposingRef = useRef(false);
 
   useEffect(() => { isOpenRef.current = isOpen; }, [isOpen]);
 
-  const connect = useCallback(async () => {
-    if (socketRef.current?.connected) return;
-    const token = await getValidAccessToken();
-    if (!token) return;
+  useEffect(() => {
+    if (!socket) return;
 
-    const socket = io('/chat', {
-      path: '/socketio',
-      auth: { token: `Bearer ${token}` },
-    });
-
-    socket.on('connect', async () => {
+    const loadHistory = async () => {
       try {
         const history = await fetchChatHistory();
         const filtered = roomId
@@ -53,9 +46,12 @@ export default function ChatPanel({ currentUserId, roomId }: ChatPanelProps) {
           setMessages(filtered);
         }
       } catch { /* non-fatal */ }
-    });
+    };
 
-    socket.on('receive_message', (msg: ChatMessage) => {
+    if (socket.connected) loadHistory();
+    socket.on('connect', loadHistory);
+
+    const handleMessage = (msg: ChatMessage) => {
       const belongs = roomId ? msg.roomId === roomId : !msg.roomId;
       if (!belongs) return;
       setMessages(prev => {
@@ -66,22 +62,14 @@ export default function ChatPanel({ currentUserId, roomId }: ChatPanelProps) {
         return next;
       });
       if (!isOpenRef.current) setUnread(n => n + 1);
-    });
+    };
+    socket.on('receive_message', handleMessage);
 
-    socket.on('connect_error', () => socket.disconnect());
-
-    socketRef.current = socket;
-  }, [roomId]);
-
-  const disconnect = useCallback(() => {
-    socketRef.current?.disconnect();
-    socketRef.current = null;
-  }, []);
-
-  useEffect(() => {
-    connect();
-    return disconnect;
-  }, [connect, disconnect]);
+    return () => {
+      socket.off('connect', loadHistory);
+      socket.off('receive_message', handleMessage);
+    };
+  }, [socket, roomId]);
 
   useEffect(() => {
     if (isOpen) {
@@ -97,10 +85,10 @@ export default function ChatPanel({ currentUserId, roomId }: ChatPanelProps) {
   const sendMessage = useCallback(() => {
     if (isComposingRef.current) return;
     const content = input.trim();
-    if (!content || !socketRef.current?.connected) return;
-    socketRef.current.emit('send_message', { content, type: 'NORMAL', roomId });
+    if (!content || !socket?.connected) return;
+    socket.emit('send_message', { content, type: 'NORMAL', roomId });
     setInput('');
-  }, [input, roomId]);
+  }, [input, roomId, socket]);
 
   if (isGame) {
     return (
